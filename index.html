@@ -50,7 +50,7 @@ const evaluationItems = [
 ];
 
 // الموظفين الشهرية
-let employees = ["أحمد", "محمد", "سلمان", "علي", "عبدالله"];
+let employees = ["مشاري العنزي", "عبدالقادر الزهراني", "سعود الشايقي", "خالد معزي", "سعد الحارثي"];
 const employeeSelect = document.getElementById("employeeSelect");
 function loadEmployees() {
   employeeSelect.innerHTML = "";
@@ -126,7 +126,8 @@ function exportExcel() {
     return;
   }
 
-  let csvContent = "data:text/csv;charset=utf-8,";
+  let csvContent = "";
+  const bom = "\uFEFF"; // UTF-8 BOM لضمان قراءة العربية في Excel
 
   // التفاصيل
   csvContent += ["الموظف","التاريخ",...evaluationItems].join(",") + "\n";
@@ -154,7 +155,7 @@ function exportExcel() {
     csvContent += [e[0],e[1].errors].join(",") + "\n";
   });
 
-  const encodedUri = encodeURI(csvContent);
+  const encodedUri = encodeURI(bom + csvContent);
   const link = document.createElement("a");
   link.setAttribute("href", encodedUri);
   link.setAttribute("download", `تقرير_الشهر_${new Date().getMonth()+1}.csv`);
