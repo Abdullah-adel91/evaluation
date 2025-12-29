@@ -1,189 +1,180 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>تقييم المكالمات</title>
-
-<!-- مكتبة الإكسل -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-body {
-    font-family: Tahoma, sans-serif;
-    background: #f6f6f6;
-    margin: 20px;
-    line-height: 1.8;
-}
-
-.container {
-    background: #fff;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 0 5px #ddd;
-    max-width: 700px;
-    margin: auto;
-}
-
-button, select, input, textarea {
-    font-size: 18px;
-    padding: 10px;
-    margin: 5px 0;
-    width: 100%;
-}
-
-.buttons-row {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.buttons-row button {
-    flex: 1;
-}
-
-h3 {
-    margin-top: 30px;
-    border-bottom: 1px solid #ddd;
-    padding-bottom: 8px;
-}
+body { direction: rtl; font-family: Arial; background: #f4f4f4; padding: 15px; }
+.container { max-width: 700px; margin: auto; background:#fff; padding:15px; border-radius:10px; }
+.item { background:#fafafa; border:1px solid #ddd; padding:10px; margin:6px 0; border-radius:6px; }
+button, select { padding:8px 12px; margin:4px; font-size:16px; }
+.result { font-weight:bold; font-size:16px; margin-right:8px; }
+.hidden { display:none; }
+.title { font-size:20px; font-weight:bold; text-align:center; margin-bottom:10px; }
 </style>
 </head>
+
 <body>
 <div class="container">
 
-<h2>📞 نظام تقييم المكالمات الشهري</h2>
+<div class="title">تقييم المكالمات</div>
 
-<!-- إدارة الأسماء -->
-<h3>إدارة أسماء الموظفين</h3>
+<!-- اختيار الموظف -->
 <select id="employeeSelect"></select>
-<div class="buttons-row">
-    <input type="text" id="newName" placeholder="اسم موظف جديد">
-    <button onclick="addName()">➕ إضافة</button>
-</div>
-<button onclick="removeName()">❌ حذف الاسم المحدد</button>
+<button onclick="addEmployeePrompt()">تعديل الأسماء</button>
+<br><br>
 
-<!-- إدخال التقييم -->
-<h3>تسجيل التقييم</h3>
-<input type="date" id="dateInput">
-<input type="text" id="criteriaInput" placeholder="المعيار">
-<input type="number" id="scoreInput" placeholder="التقييم /10">
-<textarea id="notesInput" placeholder="ملاحظات"></textarea>
-<button onclick="saveEvaluation()">💾 حفظ التقييم</button>
+<!-- البنود -->
+<div id="criteriaList"></div>
 
-<!-- معالجة -->
-<h3>الإجراءات</h3>
-<div class="buttons-row">
-    <button onclick="filterErrors()">🔍 عرض الأخطاء فقط</button>
-    <button onclick="resetFilters()">🔄 البدء من جديد</button>
-</div>
+<p id="msg" class="hidden" style="color:red;text-align:center">⚠️ قيّم كل البنود قبل عرض الأخطاء</p>
 
-<div class="buttons-row">
-    <button onclick="downloadExcel()">📥 تحميل ملف الإكسل</button>
-    <button onclick="clearAll()">🗑️ حذف كل البيانات وبداية شهر جديد</button>
-</div>
+<br>
+<button onclick="saveEvaluation()">حفظ التقييم</button>
+<button onclick="showErrors()">عرض الأخطاء</button>
+<button onclick="resetCriteria()">البدء من جديد</button>
 
-<h3>📌 قائمة التقييمات</h3>
-<div id="list"></div>
+<hr>
+
+<button onclick="downloadExcel()">📥 تحميل ملف Excel للشهر</button>
+<button onclick="clearMonth()">🗑️ حذف بيانات الشهر وبدء جديد</button>
 
 </div>
 
 <script>
-// ------------------ تخزين محلي ---------------------
-let employees = JSON.parse(localStorage.getItem("employees")) || ["محمد", "سارة"];
-let evaluations = JSON.parse(localStorage.getItem("evaluations")) || [];
+// ====== البيانات المخزنة محلياً ======
+let employees = JSON.parse(localStorage.getItem("employees") || '["موظف 1","موظف 2"]');
+let evaluations = JSON.parse(localStorage.getItem("evaluations") || "[]");
 
-// ------------------ تحميل الأسماء ---------------------
-function updateEmployeeSelect() {
-    let sel = document.getElementById("employeeSelect");
-    sel.innerHTML = "";
-    employees.forEach(n => {
-        let o = document.createElement("option");
-        o.value = n; o.textContent = n;
-        sel.appendChild(o);
-    });
+// ====== البنود ======
+const criteria = [
+ "ترحيب بداية المكالمة وذكر الاسم",
+ "طلب اسم المشترك وذكره مرة واحدة",
+ "أخذ رقم الحساب",
+ "مطابقة بيانات الحساب",
+ "أخذ إذن المشترك قبل وضعه على الانتظار",
+ "إدارة وقت المكالمة",
+ "نبرة صوت واضحة",
+ "التسويق لتوثيق العداد",
+ "توثيق المكالمة",
+ "هل إجراء المكالمة صحيح"
+];
+
+// ====== رسم البنود في الصفحة ======
+function renderCriteria(){
+ let area = document.getElementById("criteriaList");
+ area.innerHTML = "";
+ criteria.forEach(c=>{
+   area.innerHTML += `
+     <div class="item">
+       ${c}
+       <br>
+       <button onclick="setMark(this,'✔️')">✔️</button>
+       <button onclick="setMark(this,'✖️')">✖️</button>
+       <span class="result"></span>
+     </div>`;
+ });
 }
-updateEmployeeSelect();
-renderEvaluations();
 
-// ------------------ إضافة اسم ---------------------
-function addName(){
-    const n = document.getElementById("newName").value.trim();
-    if(!n) return alert("اكتب اسم أول");
-    employees.push(n);
-    localStorage.setItem("employees", JSON.stringify(employees));
-    document.getElementById("newName").value="";
-    updateEmployeeSelect();
+function setMark(btn,val){
+ btn.parentElement.querySelector(".result").innerText = val;
 }
 
-// ------------------ حذف الاسم ---------------------
-function removeName(){
-    const sel = document.getElementById("employeeSelect").value;
-    employees = employees.filter(n => n !== sel);
-    localStorage.setItem("employees", JSON.stringify(employees));
-    updateEmployeeSelect();
+function allChecked(){
+ return [...document.querySelectorAll('.result')].every(r=>r.innerText !== "");
 }
 
-// ------------------ حفظ تقييم ---------------------
+// ====== عرض الأخطاء ======
+function showErrors(){
+ if(!allChecked()){
+   msg.classList.remove("hidden");
+   return;
+ }
+ msg.classList.add("hidden");
+ document.querySelectorAll(".item").forEach(i=>{
+   i.style.display = (i.querySelector(".result").innerText === '✖️') ? 'block' : 'none';
+ });
+}
+
+// ====== البدء من جديد ======
+function resetCriteria(){
+ document.querySelectorAll(".item").forEach(i=>{
+   i.style.display='block';
+   i.querySelector(".result").innerText='';
+ });
+ msg.classList.add("hidden");
+}
+
+// ====== الموظفين ======
+function loadEmployees(){
+ let sel=document.getElementById("employeeSelect");
+ sel.innerHTML="";
+ employees.forEach(e=> sel.innerHTML += `<option>${e}</option>`);
+}
+function addEmployeePrompt(){
+ let list=prompt("اكتب أسماء الموظفين مفصولة بفاصلة:\nمثال: احمد، فهد، ناصر", employees.join("، "));
+ if(list){
+   employees=list.split(/[,،]/).map(e=>e.trim()).filter(e=>e);
+   localStorage.setItem("employees",JSON.stringify(employees));
+   loadEmployees();
+ }
+}
+
+// ====== حفظ التقييم ======
 function saveEvaluation(){
-    let obj = {
-        name: document.getElementById("employeeSelect").value,
-        date: document.getElementById("dateInput").value,
-        criteria: document.getElementById("criteriaInput").value,
-        score: document.getElementById("scoreInput").value,
-        notes: document.getElementById("notesInput").value
-    };
+ if(!allChecked()) return alert("يجب تقييم كل البنود");
 
-    evaluations.push(obj);
-    localStorage.setItem("evaluations", JSON.stringify(evaluations));
-    renderEvaluations();
-    alert("تم حفظ التقييم");
+ let emp=document.getElementById("employeeSelect").value;
+ let date=new Date().toLocaleDateString('ar-SA');
+
+ criteria.forEach((c,i)=>{
+   let score=document.querySelectorAll(".result")[i].innerText;
+   let note = score==="✖️" ? "خطأ" : "";
+   evaluations.push({name:emp,date,criteria:c,score,note});
+ });
+
+ localStorage.setItem("evaluations",JSON.stringify(evaluations));
+ alert("تم الحفظ ✔️");
 }
 
-// ------------------ عرض التقييمات ---------------------
-function renderEvaluations(list = evaluations){
-    let div = document.getElementById("list");
-    if(list.length === 0){ div.innerHTML="مافي بيانات"; return; }
-
-    div.innerHTML = list.map(e =>
-        `<div style="border-bottom:1px solid #ddd;padding:6px">
-            <b>${e.name}</b> | ${e.date} | ${e.criteria} | ⭐${e.score}/10
-            <br> ملاحظات: ${e.notes}
-        </div>`
-    ).join("");
+// ====== حذف بيانات الشهر ======
+function clearMonth(){
+ if(confirm("هل أنت متأكد من حذف بيانات الشهر؟")){
+   evaluations=[];
+   localStorage.setItem("evaluations","[]");
+   alert("تم حذف بيانات الشهر بالكامل ✔️");
+ }
 }
 
-// ------------------ تصفية الأخطاء (أقل من 8 مثال) ---------------------
-function filterErrors(){
-    let filtered = evaluations.filter(e => e.score < 8);
-    renderEvaluations(filtered);
-}
-
-// ------------------ إلغاء التصفية ---------------------
-function resetFilters(){ renderEvaluations(); }
-
-// ------------------ تحميل الإكسل ---------------------
+// ====== تحميل Excel ======
 function downloadExcel(){
-    if(evaluations.length === 0) return alert("مافي بيانات");
+ if(evaluations.length===0) return alert("مافي بيانات");
 
-    const rows = [["اسم الموظف","التاريخ","المعيار","التقييم","ملاحظات"]];
-    evaluations.forEach(e => rows.push([e.name,e.date,e.criteria,e.score,e.notes]));
+ const rows=[["اسم الموظف","التاريخ","المعيار","التقييم","ملاحظات"]];
+ evaluations.forEach(e=> rows.push([e.name,e.date,e.criteria,e.score,e.note]));
 
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "الشهر");
+ const ws=XLSX.utils.aoa_to_sheet(rows);
+ const wb=XLSX.utils.book_new();
 
-    XLSX.writeFile(wb, "تقييمات_الشهر.xlsx");
+ // إصلاح العربية على Excel للجوال
+ Object.keys(ws).forEach(cell=>{
+   if(cell[0]==='!')return;
+   if(typeof ws[cell].v==='string'){
+     ws[cell].v="\ufeff"+ws[cell].v;
+   }
+ });
+
+ XLSX.utils.book_append_sheet(wb,ws,"الشهر");
+ XLSX.writeFile(wb,"تقييمات_الشهر.xlsx",{bookType:"xlsx",type:"file",compression:true});
 }
 
-// ------------------ حذف كل البيانات ---------------------
-function clearAll(){
-    if(confirm("هل انت متأكد؟ سيتم مسح كل التقييمات وبدء شهر جديد")){
-        evaluations = [];
-        localStorage.setItem("evaluations", JSON.stringify(evaluations));
-        renderEvaluations();
-        alert("تم حذف كل شيء وبدء شهر جديد");
-    }
-}
+// ====== تشغيل أولي ======
+renderCriteria();
+loadEmployees();
 </script>
+
 </body>
 </html>
