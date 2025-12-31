@@ -10,18 +10,25 @@ body{direction:rtl;font-family:Arial;padding:10px;background:#f5f5f5}
 .item{background:#fff;margin:6px 0;padding:10px;border-radius:8px}
 button{margin:3px;padding:6px 12px;font-size:16px}
 .result{font-size:18px;font-weight:bold;margin-right:8px}
-select,input{padding:8px;font-size:16px;margin-top:5px}
+select,input,textarea{padding:8px;font-size:16px;margin-top:5px}
+textarea{width:100%;}
 </style>
 </head>
 <body>
 
 <h2 style="text-align:center">تقييم المكالمات</h2>
 
+<!-- إدارة الموظفين -->
 <div>
   <label>اسم الموظف:</label>
   <select id="employeeSelect"></select>
   <button onclick="addEmployee()">إضافة اسم</button>
+  <button onclick="deleteEmployee()">حذف الموظف المحدد</button>
   <button onclick="saveEmployees()">حفظ القائمة</button>
+  <br><br>
+  <label>إضافة أسماء دفعة واحدة (سطر لكل اسم):</label>
+  <textarea id="bulkEmployees" rows="5" placeholder="ضع كل الأسماء هنا"></textarea><br>
+  <button onclick="addMultipleEmployees()">إضافة جميع الأسماء</button>
 </div>
 
 <hr>
@@ -53,6 +60,7 @@ const criteriaList = [
 "هل إجراء المكالمة صحيح"
 ];
 
+/* إنشاء البنود */
 function renderCriteria(){
   const div=document.getElementById("criteria");
   div.innerHTML="";
@@ -64,11 +72,11 @@ function renderCriteria(){
     </div>`;
   });
 }
-
 function setMark(btn,val){
   btn.parentElement.querySelector('.result').innerText=val;
 }
 
+/* حفظ التقييم */
 function saveEvaluation(){
   const employee=document.getElementById("employeeSelect").value;
   if(!employee) return alert("اختر اسم الموظف");
@@ -86,10 +94,12 @@ function saveEvaluation(){
   alert("تم حفظ التقييم ✔️");
 }
 
+/* إعادة تعيين */
 function resetView(){
   document.querySelectorAll('.result').forEach(r=>r.innerText='');
 }
 
+/* إدارة الأسماء */
 function loadEmployeeNames(){
   const sel=document.getElementById("employeeSelect");
   sel.innerHTML="";
@@ -99,12 +109,32 @@ function addEmployee(){
   const name=prompt("اكتب اسم الموظف الجديد:");
   if(name){employees.push(name);loadEmployeeNames();}
 }
+function addMultipleEmployees(){
+  const text=document.getElementById("bulkEmployees").value;
+  if(!text) return alert("لا توجد أسماء");
+  const names=text.split(/\r?\n/).map(n=>n.trim()).filter(n=>n);
+  employees.push(...names);
+  employees=[...new Set(employees)]; // إزالة التكرار
+  loadEmployeeNames();
+  alert(names.length+" أسماء تم إضافتها ✔️");
+}
+function deleteEmployee(){
+  const sel=document.getElementById("employeeSelect");
+  const name=sel.value;
+  if(!name) return alert("اختر موظف للحذف");
+  if(confirm("هل تريد حذف "+name+"؟")){
+    employees=employees.filter(e=>e!==name);
+    loadEmployeeNames();
+    localStorage.setItem("employees",JSON.stringify(employees));
+    alert(name+" تم حذفه ✔️");
+  }
+}
 function saveEmployees(){
   localStorage.setItem("employees",JSON.stringify(employees));
   alert("تم حفظ قائمة الموظفين ✔️");
 }
 
-/* ░ Excel كامل ░ */
+/* ░ تنزيل Excel كامل ░ */
 function downloadExcel(){
   if(evaluations.length===0) return alert("لا توجد بيانات");
 
@@ -137,7 +167,7 @@ function downloadExcel(){
   const bottom5=[["أسوأ 5"],["الموظف","عدد الأخطاء"],...sortedStats.slice(-5)];
   const sheet3=[...top5,[],...bottom5];
 
-  // الصفحة 4: Dashboard بصري (Pie Chart الأخطاء لكل بند)
+  // الصفحة 4: Dashboard (جدول جاهز Pie Chart)
   const totalPerCriteria=criteriaList.map(c=>employees.reduce((sum,e)=>sum+matrix[e][c],0));
   const sheet4=[["البند","عدد الأخطاء"]];
   criteriaList.forEach((c,i)=>sheet4.push([c,totalPerCriteria[i]]));
