@@ -1,4 +1,50 @@
-<!-- ... الجزء العلوي من كودك يبقى كما هو ... -->
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>تقييم المكالمات</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body{direction:rtl;font-family:Arial;padding:10px;background:#f5f5f5}
+.item{background:#fff;margin:6px 0;padding:10px;border-radius:8px}
+button{margin:3px;padding:6px 12px;font-size:16px}
+.result{font-size:18px;font-weight:bold;margin-right:8px}
+.hidden{display:none}
+select,input{padding:8px;font-size:16px;margin-top:5px}
+</style>
+</head>
+
+<body>
+
+<h2 style="text-align:center">تقييم المكالمات</h2>
+
+<!-- اختيار الموظف -->
+<div>
+  <label>اسم الموظف:</label><br>
+  <select id="employeeSelect"></select>
+  <button onclick="addEmployee()">إضافة اسم</button>
+  <button onclick="saveEmployees()">حفظ القائمة</button>
+</div>
+
+<hr>
+
+<!-- البنود -->
+<div id="criteria"></div>
+
+<!-- أزرار رئيسية -->
+<br>
+<button onclick="saveEvaluation()">حفظ التقييم</button>
+<button onclick="showErrors()">عرض الأخطاء فقط</button>
+<button onclick="resetView()">البدء من جديد</button>
+
+<hr>
+
+<!-- نهاية الشهر -->
+<h3>خيارات نهاية الشهر</h3>
+<button onclick="downloadExcel()">📥 تحميل ملف الإكسل</button>
+<button onclick="deleteAllData()">❌ حذف كل بيانات الشهر</button>
 
 <script>
 /* ░░▒▒ بيانات أساسية ▒▒░░ */
@@ -107,7 +153,17 @@ function downloadExcel(){
   XLSX.utils.book_append_sheet(wb, wsStats, "الإحصاءات الشهرية");
   XLSX.utils.book_append_sheet(wb, wsTopBottom, "أفضل وأسوأ 5");
 
-  XLSX.writeFile(wb,"تقييمات_الشهر.xlsx",{compression:true});
+  // إنشاء رابط تحميل يدعم الجوال والكمبيوتر
+  const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  const blob = new Blob([wbout], {type:"application/octet-stream"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "تقييمات_الشهر.xlsx";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 /* ░░▒▒ باقي الدوال كما هي ▒▒░░ */
@@ -121,5 +177,7 @@ function saveEmployees(){localStorage.setItem("employees",JSON.stringify(employe
 /* ░░▒▒ تشغيل أول مرة ▒▒░░ */
 renderCriteria();
 loadEmployeeNames();
-
 </script>
+
+</body>
+</html>
