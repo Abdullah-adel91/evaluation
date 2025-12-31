@@ -2,7 +2,7 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>تقييم المكالمات – Excel احترافي مع ألوان متدرجة</title>
+<title>تقييم المكالمات – Excel احترافي</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -39,8 +39,9 @@ textarea{width:100%;}
 <button onclick="resetView()">البدء من جديد</button>
 
 <hr>
-<h3>تحميل ملف Excel احترافي</h3>
+<h3>خيارات نهاية الشهر</h3>
 <button onclick="downloadExcel()">📥 تحميل ملف الإكسل</button>
+<button onclick="deleteAllData()">❌ حذف كل بيانات الشهر</button>
 
 <script>
 let employees = JSON.parse(localStorage.getItem("employees")) || ["محمد","عبدالله","سارة"];
@@ -137,7 +138,16 @@ function saveEmployees(){
   alert("تم حفظ قائمة الموظفين ✔️");
 }
 
-/* ░ تنزيل Excel احترافي مع ألوان متدرجة ░ */
+/* حذف كل بيانات الشهر */
+function deleteAllData(){
+  if(confirm("هل أنت متأكد من حذف كل بيانات هذا الشهر؟")){
+    localStorage.removeItem("evaluations");
+    evaluations=[];
+    alert("تم حذف كل بيانات الشهر ✔️");
+  }
+}
+
+/* تنزيل Excel احترافي مع ألوان متدرجة */
 function downloadExcel(){
   if(evaluations.length===0) return alert("لا توجد بيانات");
 
@@ -171,7 +181,7 @@ function downloadExcel(){
   const bottom5=[["أسوأ 5"],["الموظف","عدد الأخطاء"],...sortedStats.slice(-5)];
   const sheet3=[...top5,[],...bottom5];
 
-  // الصفحة 4: Dashboard (جدول جاهز Pie Chart)
+  // الصفحة 4: Dashboard
   const totalPerCriteria=criteriaList.map(c=>employees.reduce((sum,e)=>sum+matrix[e][c],0));
   const sheet4=[["البند","عدد الأخطاء"]];
   criteriaList.forEach((c,i)=>sheet4.push([c,totalPerCriteria[i]]));
@@ -182,7 +192,7 @@ function downloadExcel(){
   const ws3=XLSX.utils.aoa_to_sheet(sheet3);
   const ws4=XLSX.utils.aoa_to_sheet(sheet4);
 
-  // تلوين متدرج حسب شدة الأخطاء
+  // تدرج الألوان حسب شدة الأخطاء
   function styleSheet(ws){
     const range=XLSX.utils.decode_range(ws['!ref']);
     for(let C=range.s.c; C<=range.e.c; ++C){
