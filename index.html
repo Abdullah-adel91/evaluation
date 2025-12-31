@@ -2,7 +2,7 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>تقييم المكالمات – Excel كامل</title>
+<title>تقييم المكالمات – Excel احترافي مع ألوان متدرجة</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -39,7 +39,7 @@ textarea{width:100%;}
 <button onclick="resetView()">البدء من جديد</button>
 
 <hr>
-<h3>تحميل ملف Excel كامل</h3>
+<h3>تحميل ملف Excel احترافي</h3>
 <button onclick="downloadExcel()">📥 تحميل ملف الإكسل</button>
 
 <script>
@@ -76,12 +76,15 @@ function setMark(btn,val){
   btn.parentElement.querySelector('.result').innerText=val;
 }
 
-/* حفظ التقييم */
+/* حفظ التقييم مع تأكيد */
 function saveEvaluation(){
   const employee=document.getElementById("employeeSelect").value;
   if(!employee) return alert("اختر اسم الموظف");
   const results=[...document.querySelectorAll('.result')];
   if(results.some(r=>!r.innerText)) return alert("قيّم كل البنود");
+
+  if(!confirm("هل أنت متأكد أنك تريد حفظ التقييم للموظف: " + employee + "؟")) return;
+
   results.forEach((r,i)=>{
     evaluations.push({
       name:employee,
@@ -91,7 +94,7 @@ function saveEvaluation(){
     });
   });
   localStorage.setItem("evaluations",JSON.stringify(evaluations));
-  alert("تم حفظ التقييم ✔️");
+  alert("تم حفظ التقييم للموظف: " + employee + " ✔️");
 }
 
 /* إعادة تعيين */
@@ -134,17 +137,18 @@ function saveEmployees(){
   alert("تم حفظ قائمة الموظفين ✔️");
 }
 
-/* ░ تنزيل Excel كامل ░ */
+/* ░ تنزيل Excel احترافي مع ألوان متدرجة ░ */
 function downloadExcel(){
   if(evaluations.length===0) return alert("لا توجد بيانات");
 
-  // الصفحة 1: مصفوفة الموظفين × البنود
   const matrix={};
   employees.forEach(e=>matrix[e]={});
   criteriaList.forEach(c=>employees.forEach(e=>matrix[e][c]=0));
   evaluations.forEach(ev=>{
     if(ev.score==='✖️') matrix[ev.name][ev.criteria]++;
   });
+
+  // الصفحة 1: مصفوفة الموظفين × البنود
   const sheet1=[["الموظف",...criteriaList]];
   employees.forEach(e=>{
     const row=[e];
@@ -152,7 +156,7 @@ function downloadExcel(){
     sheet1.push(row);
   });
 
-  // الصفحة 2: إحصاءات شهرية
+  // الصفحة 2: الإحصاءات الشهرية
   const stats=[["الموظف","عدد الأخطاء","إجمالي البنود","النسبة %"]];
   employees.forEach(e=>{
     const errors=criteriaList.reduce((sum,c)=>sum+matrix[e][c],0);
@@ -172,12 +176,47 @@ function downloadExcel(){
   const sheet4=[["البند","عدد الأخطاء"]];
   criteriaList.forEach((c,i)=>sheet4.push([c,totalPerCriteria[i]]));
 
-  // إنشاء ملف Excel
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sheet1),"التقييم");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(stats),"الإحصاءات");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sheet3),"أفضل وأسوأ 5");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sheet4),"Dashboard");
+  const ws1=XLSX.utils.aoa_to_sheet(sheet1);
+  const ws2=XLSX.utils.aoa_to_sheet(stats);
+  const ws3=XLSX.utils.aoa_to_sheet(sheet3);
+  const ws4=XLSX.utils.aoa_to_sheet(sheet4);
+
+  // تلوين متدرج حسب شدة الأخطاء
+  function styleSheet(ws){
+    const range=XLSX.utils.decode_range(ws['!ref']);
+    for(let C=range.s.c; C<=range.e.c; ++C){
+      const cellAddress=XLSX.utils.encode_cell({r:0,c:C});
+      if(ws[cellAddress]) ws[cellAddress].s={font:{bold:true},fill:{fgColor:{rgb:"FFB0C4DE"}}};
+    }
+    for(let R=1; R<=range.e.r; R++){
+      for(let C=0; C<=range.e.c; C++){
+        const cellAddress=XLSX.utils.encode_cell({r:R,c:C});
+        if(ws[cellAddress]){
+          ws[cellAddress].s={fill:{fgColor:{rgb:R%2===0?"FFFFFFFF":"FFF0F8FF"}}};
+          if(C>0 && typeof ws[cellAddress].v==='number'){
+            let val=ws[cellAddress].v;
+            if(val===0){
+              ws[cellAddress].s.fill={fgColor:{rgb:"FFDAF7DC"}}; // أخضر فاتح
+            } else if(val<=2){
+              ws[cellAddress].s.fill={fgColor:{rgb:"FFFFF3AA"}}; // أصفر فاتح
+            } else if(val<=4){
+              ws[cellAddress].s.fill={fgColor:{rgb:"FFFFC87C"}}; // برتقالي
+            } else {
+              ws[cellAddress].s.fill={fgColor:{rgb:"FFFF6B6B"}}; // أحمر غامق
+            }
+          }
+        }
+      }
+    }
+  }
+
+  [ws1,ws2,ws3,ws4].forEach(styleSheet);
+
+  XLSX.utils.book_append_sheet(wb,ws1,"التقييم");
+  XLSX.utils.book_append_sheet(wb,ws2,"الإحصاءات");
+  XLSX.utils.book_append_sheet(wb,ws3,"أفضل وأسوأ 5");
+  XLSX.utils.book_append_sheet(wb,ws4,"Dashboard");
 
   XLSX.writeFile(wb,"تقييمات_الموظفين.xlsx");
 }
