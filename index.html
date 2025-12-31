@@ -11,7 +11,6 @@ body{direction:rtl;font-family:Arial;padding:10px;background:#f5f5f5}
 .item{background:#fff;margin:6px 0;padding:10px;border-radius:8px}
 button{margin:3px;padding:6px 12px;font-size:16px}
 .result{font-size:18px;font-weight:bold;margin-right:8px}
-.hidden{display:none}
 select,input{padding:8px;font-size:16px;margin-top:5px}
 </style>
 </head>
@@ -20,7 +19,6 @@ select,input{padding:8px;font-size:16px;margin-top:5px}
 
 <h2 style="text-align:center">تقييم المكالمات</h2>
 
-<!-- اختيار الموظف -->
 <div>
   <label>اسم الموظف:</label><br>
   <select id="employeeSelect"></select>
@@ -29,25 +27,20 @@ select,input{padding:8px;font-size:16px;margin-top:5px}
 </div>
 
 <hr>
-
-<!-- البنود -->
 <div id="criteria"></div>
 
-<!-- أزرار رئيسية -->
 <br>
 <button onclick="saveEvaluation()">حفظ التقييم</button>
 <button onclick="showErrors()">عرض الأخطاء فقط</button>
 <button onclick="resetView()">البدء من جديد</button>
 
 <hr>
-
-<!-- نهاية الشهر -->
 <h3>خيارات نهاية الشهر</h3>
 <button onclick="downloadExcel()">📥 تحميل ملف الإكسل</button>
 <button onclick="deleteAllData()">❌ حذف كل بيانات الشهر</button>
 
 <script>
-/* ░░▒▒ بيانات أساسية ▒▒░░ */
+/* البيانات الأساسية */
 let employees = JSON.parse(localStorage.getItem("employees")) || ["محمد","عبدالله","سارة"];
 let evaluations = JSON.parse(localStorage.getItem("evaluations")) || [];
 const criteriaList = [
@@ -65,7 +58,7 @@ const criteriaList = [
 "هل إجراء المكالمة صحيح"
 ];
 
-/* ░░▒▒ إنشاء البنود ▒▒░░ */
+/* إنشاء البنود */
 function renderCriteria(){
   const div = document.getElementById("criteria");
   div.innerHTML = "";
@@ -84,11 +77,10 @@ function setMark(btn,val){
   btn.parentElement.querySelector('.result').innerText = val;
 }
 
-/* ░░▒▒ حفظ التقييم ▒▒░░ */
+/* حفظ التقييم */
 function saveEvaluation(){
   const employee = document.getElementById("employeeSelect").value;
   if(!employee) return alert("اختر اسم الموظف");
-
   const results = [...document.querySelectorAll('.result')];
   if(results.some(r=>!r.innerText)) return alert("قيّم كل البنود");
 
@@ -106,21 +98,20 @@ function saveEvaluation(){
   alert("تم حفظ التقييم ✔️");
 }
 
-/* ░░▒▒ تحميل اكسل مع الإحصاءات وأفضل وأسوأ 5 ▒▒░░ */
+/* تحميل اكسل مع الإحصاءات وأفضل وأسوأ 5 */
 function downloadExcel(){
   if(evaluations.length===0) return alert("مافي بيانات");
 
-  // جدول التفاصيل الشهرية
   const details = [["اسم الموظف","التاريخ","البند","التقييم","ملاحظات"]];
   evaluations.forEach(e => details.push([e.name,e.date,e.criteria,e.score,e.notes]));
 
-  // جدول الإحصاءات الشهرية
   const statsMap = {};
   evaluations.forEach(e=>{
     if(!statsMap[e.name]) statsMap[e.name] = {total:0, errors:0};
     statsMap[e.name].total++;
     if(e.score === "✖️") statsMap[e.name].errors++;
   });
+
   const stats = [["الموظف","عدد البنود","عدد الأخطاء","النسبة"]];
   for(let name in statsMap){
     const t = statsMap[name].total;
@@ -129,13 +120,11 @@ function downloadExcel(){
     stats.push([name,t,err,pct]);
   }
 
-  // أفضل وأسوأ 5 (حسب الأخطاء الأقل)
   const sorted = Object.entries(statsMap).sort((a,b)=>a[1].errors-b[1].errors);
   const top5 = sorted.slice(0,5).map(e=>[e[0],e[1].total - e[1].errors]);
   const bottom5 = sorted.slice(-5).map(e=>[e[0],e[1].total - e[1].errors]);
   const topBottom = [["أفضل 5"],["الموظف","النقاط"],...top5,[""],["أسوأ 5"],["الموظف","النقاط"],...bottom5];
 
-  // إنشاء ملف Excel
   const wb = XLSX.utils.book_new();
   const wsDetails = XLSX.utils.aoa_to_sheet(details);
   const wsStats = XLSX.utils.aoa_to_sheet(stats);
@@ -153,7 +142,7 @@ function downloadExcel(){
   XLSX.utils.book_append_sheet(wb, wsStats, "الإحصاءات الشهرية");
   XLSX.utils.book_append_sheet(wb, wsTopBottom, "أفضل وأسوأ 5");
 
-  // إنشاء رابط تحميل يدعم الجوال والكمبيوتر
+  // دعم تحميل الملف على الكمبيوتر والجوال
   const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
   const blob = new Blob([wbout], {type:"application/octet-stream"});
   const url = URL.createObjectURL(blob);
@@ -166,7 +155,7 @@ function downloadExcel(){
   URL.revokeObjectURL(url);
 }
 
-/* ░░▒▒ باقي الدوال كما هي ▒▒░░ */
+/* الدوال المساعدة */
 function showErrors(){document.querySelectorAll('.item').forEach(i=>i.style.display=i.querySelector('.result').innerText==='✖️'?'block':'none');}
 function resetView(){document.querySelectorAll('.item').forEach(i=>{i.style.display='block';i.querySelector('.result').innerText='';});}
 function deleteAllData(){if(confirm("هل انت متأكد من حذف كل بيانات هذا الشهر؟")){localStorage.removeItem("evaluations");evaluations=[];alert("تم حذف كل بيانات الشهر ✔️");}}
@@ -174,7 +163,7 @@ function loadEmployeeNames(){const sel=document.getElementById("employeeSelect")
 function addEmployee(){const name=prompt("اكتب اسم الموظف الجديد:");if(name){employees.push(name);loadEmployeeNames();}}
 function saveEmployees(){localStorage.setItem("employees",JSON.stringify(employees));alert("تم حفظ قائمة الموظفين ✔️");}
 
-/* ░░▒▒ تشغيل أول مرة ▒▒░░ */
+/* تشغيل أول مرة */
 renderCriteria();
 loadEmployeeNames();
 </script>
