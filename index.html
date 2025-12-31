@@ -1,58 +1,9 @@
-<!DOCTYPE html>
-<html lang="ar">
-<head>
-<meta charset="UTF-8">
-<title>تقييم المكالمة</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-<style>
-body{direction:rtl;font-family:Arial;padding:10px;background:#f5f5f5}
-.item{background:#fff;margin:6px 0;padding:10px;border-radius:8px}
-button{margin:3px;padding:6px 12px;font-size:16px}
-.result{font-size:18px;font-weight:bold;margin-right:8px}
-.hidden{display:none}
-select,input{padding:8px;font-size:16px;margin-top:5px}
-</style>
-</head>
-
-<body>
-
-<h2 style="text-align:center">تقييم المكالمات</h2>
-
-<!-- اختيار الموظف -->
-<div>
-  <label>اسم الموظف:</label><br>
-  <select id="employeeSelect"></select>
-  <button onclick="addEmployee()">إضافة اسم</button>
-  <button onclick="saveEmployees()">حفظ القائمة</button>
-</div>
-
-<hr>
-
-<!-- البنود -->
-<div id="criteria"></div>
-
-<!-- أزرار رئيسية -->
-<br>
-<button onclick="saveEvaluation()">حفظ التقييم</button>
-<button onclick="showErrors()">عرض الأخطاء فقط</button>
-<button onclick="resetView()">البدء من جديد</button>
-
-<hr>
-
-<!-- نهاية الشهر -->
-<h3>خيارات نهاية الشهر</h3>
-<button onclick="downloadExcel()">📥 تحميل ملف الإكسل</button>
-<button onclick="deleteAllData()">❌ حذف كل بيانات الشهر</button>
+<!-- ... الجزء العلوي من كودك يبقى كما هو ... -->
 
 <script>
 /* ░░▒▒ بيانات أساسية ▒▒░░ */
-
 let employees = JSON.parse(localStorage.getItem("employees")) || ["محمد","عبدالله","سارة"];
 let evaluations = JSON.parse(localStorage.getItem("evaluations")) || [];
-
-/* ░░▒▒ بنود التقييم ▒▒░░ */
 const criteriaList = [
 "ترحيب بداية المكالمة وذكر الاسم",
 "طلب اسم المشترك وذكره مرة واحدة",
@@ -67,7 +18,6 @@ const criteriaList = [
 "إغلاق المكالمة بشكل صحيح",
 "هل إجراء المكالمة صحيح"
 ];
-
 
 /* ░░▒▒ إنشاء البنود ▒▒░░ */
 function renderCriteria(){
@@ -84,7 +34,6 @@ function renderCriteria(){
   });
 }
 
-/* ░░▒▒ وضع التقييم ▒▒░░ */
 function setMark(btn,val){
   btn.parentElement.querySelector('.result').innerText = val;
 }
@@ -111,80 +60,66 @@ function saveEvaluation(){
   alert("تم حفظ التقييم ✔️");
 }
 
-/* ░░▒▒ عرض الأخطاء ▒▒░░ */
-function showErrors(){
-  document.querySelectorAll('.item').forEach(i=>{
-    i.style.display = i.querySelector('.result').innerText === '✖️'
-      ? 'block' : 'none';
-  });
-}
-
-/* ░░▒▒ عرض الكل من جديد ▒▒░░ */
-function resetView(){
-  document.querySelectorAll('.item').forEach(i=>{
-    i.style.display='block';
-    i.querySelector('.result').innerText='';
-  });
-}
-
-/* ░░▒▒ تحميل اكسل عربي بدون تخريب ▒▒░░ */
+/* ░░▒▒ تحميل اكسل مع الإحصاءات وأفضل وأسوأ 5 ▒▒░░ */
 function downloadExcel(){
   if(evaluations.length===0) return alert("مافي بيانات");
 
-  const rows=[["اسم الموظف","التاريخ","البند","التقييم","ملاحظات"]];
-  evaluations.forEach(e => rows.push([e.name,e.date,e.criteria,e.score,e.notes]));
+  // جدول التفاصيل الشهرية
+  const details = [["اسم الموظف","التاريخ","البند","التقييم","ملاحظات"]];
+  evaluations.forEach(e => details.push([e.name,e.date,e.criteria,e.score,e.notes]));
 
-  const ws = XLSX.utils.aoa_to_sheet(rows);
+  // جدول الإحصاءات الشهرية
+  const statsMap = {};
+  evaluations.forEach(e=>{
+    if(!statsMap[e.name]) statsMap[e.name] = {total:0, errors:0};
+    statsMap[e.name].total++;
+    if(e.score === "✖️") statsMap[e.name].errors++;
+  });
+  const stats = [["الموظف","عدد البنود","عدد الأخطاء","النسبة"]];
+  for(let name in statsMap){
+    const t = statsMap[name].total;
+    const err = statsMap[name].errors;
+    const pct = ((t-err)/t*100).toFixed(2) + "%";
+    stats.push([name,t,err,pct]);
+  }
+
+  // أفضل وأسوأ 5 (حسب الأخطاء الأقل)
+  const sorted = Object.entries(statsMap).sort((a,b)=>a[1].errors-b[1].errors);
+  const top5 = sorted.slice(0,5).map(e=>[e[0],e[1].total - e[1].errors]);
+  const bottom5 = sorted.slice(-5).map(e=>[e[0],e[1].total - e[1].errors]);
+  const topBottom = [["أفضل 5"],["الموظف","النقاط"],...top5,[""],["أسوأ 5"],["الموظف","النقاط"],...bottom5];
+
+  // إنشاء ملف Excel
   const wb = XLSX.utils.book_new();
+  const wsDetails = XLSX.utils.aoa_to_sheet(details);
+  const wsStats = XLSX.utils.aoa_to_sheet(stats);
+  const wsTopBottom = XLSX.utils.aoa_to_sheet(topBottom);
 
-  // إصلاح العربية في Excel على الجوال
-  Object.keys(ws).forEach(cell=>{
-    if(cell[0]==='!')return;
-    if(typeof ws[cell].v==='string'){
-      ws[cell].v = "\ufeff"+ws[cell].v;
+  // Conditional formatting (تمييز الأخطاء باللون الأحمر)
+  Object.keys(wsDetails).forEach(cell=>{
+    if(cell[0]==='!') return;
+    if(wsDetails[cell].v === "✖️"){
+      wsDetails[cell].s = {fill: {fgColor: {rgb:"FFC7CE"}}};
     }
   });
 
-  XLSX.utils.book_append_sheet(wb,ws,"الشهر");
+  XLSX.utils.book_append_sheet(wb, wsDetails, "الشهر");
+  XLSX.utils.book_append_sheet(wb, wsStats, "الإحصاءات الشهرية");
+  XLSX.utils.book_append_sheet(wb, wsTopBottom, "أفضل وأسوأ 5");
+
   XLSX.writeFile(wb,"تقييمات_الشهر.xlsx",{compression:true});
 }
 
-/* ░░▒▒ حذف الشهر ▒▒░░ */
-function deleteAllData(){
-  if(confirm("هل انت متأكد من حذف كل بيانات هذا الشهر؟")){
-    localStorage.removeItem("evaluations");
-    evaluations=[];
-    alert("تم حذف كل بيانات الشهر ✔️");
-  }
-}
+/* ░░▒▒ باقي الدوال كما هي ▒▒░░ */
+function showErrors(){document.querySelectorAll('.item').forEach(i=>i.style.display=i.querySelector('.result').innerText==='✖️'?'block':'none');}
+function resetView(){document.querySelectorAll('.item').forEach(i=>{i.style.display='block';i.querySelector('.result').innerText='';});}
+function deleteAllData(){if(confirm("هل انت متأكد من حذف كل بيانات هذا الشهر؟")){localStorage.removeItem("evaluations");evaluations=[];alert("تم حذف كل بيانات الشهر ✔️");}}
+function loadEmployeeNames(){const sel=document.getElementById("employeeSelect");sel.innerHTML="";employees.forEach(e=>sel.innerHTML+=`<option>${e}</option>`);}
+function addEmployee(){const name=prompt("اكتب اسم الموظف الجديد:");if(name){employees.push(name);loadEmployeeNames();}}
+function saveEmployees(){localStorage.setItem("employees",JSON.stringify(employees));alert("تم حفظ قائمة الموظفين ✔️");}
 
-/* ░░▒▒ إدارة الأسماء ▒▒░░ */
-function loadEmployeeNames(){
-  const sel=document.getElementById("employeeSelect");
-  sel.innerHTML="";
-  employees.forEach(e=>{
-    sel.innerHTML+=`<option>${e}</option>`;
-  });
-}
-
-function addEmployee(){
-  const name = prompt("اكتب اسم الموظف الجديد:");
-  if(name){
-    employees.push(name);
-    loadEmployeeNames();
-  }
-}
-
-function saveEmployees(){
-  localStorage.setItem("employees",JSON.stringify(employees));
-  alert("تم حفظ قائمة الموظفين ✔️");
-}
-
-/* ░░▒▒ تشغيل اول مرة ▒▒░░ */
+/* ░░▒▒ تشغيل أول مرة ▒▒░░ */
 renderCriteria();
 loadEmployeeNames();
 
 </script>
-
-</body>
-</html>
