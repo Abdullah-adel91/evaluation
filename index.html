@@ -2,239 +2,187 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>تقييم المكالمات – Excel احترافي</title>
+<title>نظام تقييم الجودة</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
-body{direction:rtl;font-family:Arial;padding:10px;background:#f5f5f5}
-.item{background:#fff;margin:6px 0;padding:10px;border-radius:8px}
-button{margin:3px;padding:6px 12px;font-size:16px}
-.result{font-size:18px;font-weight:bold;margin-right:8px}
-select,input,textarea{padding:8px;font-size:16px;margin-top:5px}
-textarea{width:100%;}
+body{direction:rtl;font-family:Arial;background:#f4f4f4;padding:10px}
+.item{background:#fff;padding:10px;margin:6px 0;border-radius:8px}
+button{padding:6px 12px;margin:3px;font-size:15px}
+.result{font-weight:bold;margin-right:8px}
+select,input,textarea{padding:8px;font-size:15px;margin-top:5px}
+.badge{padding:4px 8px;border-radius:6px;color:#fff;font-size:13px}
+.green{background:#2ecc71}
+.yellow{background:#f1c40f}
+.red{background:#e74c3c}
 </style>
 </head>
+
 <body>
 
-<h2 style="text-align:center">تقييم المكالمات</h2>
+<h2 style="text-align:center">نظام تقييم الجودة</h2>
 
-<!-- إدارة الموظفين -->
-<div>
-  <label>اسم الموظف:</label>
-  <select id="employeeSelect"></select>
-  <button onclick="addEmployee()">إضافة اسم</button>
-  <button onclick="deleteEmployee()">حذف الموظف المحدد</button>
-  <button onclick="saveEmployees()">حفظ القائمة</button>
-  <br><br>
-  <label>إضافة أسماء دفعة واحدة (سطر لكل اسم):</label>
-  <textarea id="bulkEmployees" rows="5" placeholder="ضع كل الأسماء هنا"></textarea><br>
-  <button onclick="addMultipleEmployees()">إضافة جميع الأسماء</button>
+<!-- الموظفين -->
+<div class="item">
+<label>اسم الموظف:</label>
+<select id="employee"></select>
+<button onclick="addEmployee()">إضافة</button>
+<button onclick="deleteEmployee()">حذف</button>
+<br><br>
+<textarea id="bulk" rows="3" placeholder="إضافة أسماء (سطر لكل اسم)"></textarea><br>
+<button onclick="addBulk()">إضافة جميع الأسماء</button>
 </div>
 
-<hr>
-
-<h3>تقييم المكالمات</h3>
+<!-- التقييم -->
+<h3>بنود التقييم</h3>
 <div id="criteria"></div>
-<button onclick="saveEvaluation()">حفظ التقييم</button>
-<button onclick="resetView()">البدء من جديد</button>
+<button onclick="saveEvaluation()">💾 حفظ التقييم</button>
+<button onclick="resetMarks()">🔄 إعادة التقييم</button>
 
 <hr>
-<h3>خيارات نهاية الشهر</h3>
-<button onclick="downloadExcel()">📥 تحميل ملف الإكسل</button>
-<button onclick="deleteAllData()">❌ حذف كل بيانات الشهر</button>
+
+<button onclick="exportExcel()">📊 تصدير Excel</button>
+<button onclick="clearMonth()">❌ حذف بيانات الشهر</button>
 
 <script>
-let employees = JSON.parse(localStorage.getItem("employees")) || ["محمد","عبدالله","سارة"];
+/* ===== البيانات ===== */
+let employees = JSON.parse(localStorage.getItem("employees")) || [];
 let evaluations = JSON.parse(localStorage.getItem("evaluations")) || [];
+
 const criteriaList = [
-"ترحيب بداية المكالمة وذكر الاسم",
-"طلب اسم المشترك وذكره مرة واحدة",
-"أخذ رقم الحساب",
-"مطابقة بيانات الحساب",
-"أخذ إذن المشترك قبل وضعه على الانتظار",
-"إدارة وقت المكالمة",
-"شكر المشترك على الانتظار",
-"نبرة صوت واضحة",
-"التسويق لتوثيق العداد",
-"توثيق المكالمة",
-"إغلاق المكالمة بشكل صحيح",
-"هل إجراء المكالمة صحيح"
+ {name:"ترحيب بداية المكالمة"},
+ {name:"طلب رقم الحساب"},
+ {name:"نبرة صوت واضحة", hint:"لا تكون ناشف – لا ترفع صوتك – لا تكون بارد"},
+ {name:"إدارة وقت المكالمة"},
+ {name:"توثيق المكالمة"},
+ {name:"إغلاق المكالمة بشكل صحيح"}
 ];
 
-/* إنشاء البنود */
+/* ===== تحميل ===== */
+function loadEmployees(){
+ const sel=document.getElementById("employee");
+ sel.innerHTML="<option value=''>اختر</option>";
+ employees.forEach(e=>sel.innerHTML+=`<option>${e}</option>`);
+}
+
+/* ===== بنود ===== */
 function renderCriteria(){
-  const div=document.getElementById("criteria");
-  div.innerHTML="";
-  criteriaList.forEach(c=>{
-    div.innerHTML+=`<div class="item">${c}<br>
-      <button onclick="setMark(this,'✔️')">✔️</button>
-      <button onclick="setMark(this,'✖️')">✖️</button>
-      <span class="result"></span>
-    </div>`;
-  });
+ const div=document.getElementById("criteria");
+ div.innerHTML="";
+ criteriaList.forEach(c=>{
+  div.innerHTML+=`
+  <div class="item">
+   <strong>${c.name}</strong>
+   ${c.hint?`<div style="font-size:13px;color:#666">${c.hint}</div>`:""}
+   <br>
+   <button onclick="mark(this,'✔️')">✔️</button>
+   <button onclick="mark(this,'✖️')">✖️</button>
+   <span class="result"></span>
+  </div>`;
+ });
 }
-function setMark(btn,val){
-  btn.parentElement.querySelector('.result').innerText=val;
+function mark(btn,val){
+ btn.parentElement.querySelector(".result").innerText=val;
+}
+function resetMarks(){
+ document.querySelectorAll(".result").forEach(r=>r.innerText="");
 }
 
-/* حفظ التقييم مع تأكيد */
+/* ===== حفظ التقييم ===== */
 function saveEvaluation(){
-  const employee=document.getElementById("employeeSelect").value;
-  if(!employee) return alert("اختر اسم الموظف");
-  const results=[...document.querySelectorAll('.result')];
-  if(results.some(r=>!r.innerText)) return alert("قيّم كل البنود");
+ const emp=document.getElementById("employee").value;
+ if(!emp) return alert("اختر موظف");
 
-  if(!confirm("هل أنت متأكد أنك تريد حفظ التقييم للموظف: " + employee + "؟")) return;
+ const results=[...document.querySelectorAll(".result")];
+ if(results.some(r=>!r.innerText)) return alert("قيّم كل البنود");
 
-  results.forEach((r,i)=>{
-    evaluations.push({
-      name:employee,
-      date:new Date().toLocaleDateString('ar-SA'),
-      criteria:criteriaList[i],
-      score:r.innerText
-    });
-  });
-  localStorage.setItem("evaluations",JSON.stringify(evaluations));
-  alert("تم حفظ التقييم للموظف: " + employee + " ✔️");
+ let score=prompt("ادخل درجة الفيرنت (0 - 100):");
+ if(score===null) return;
+ score=parseFloat(score);
+ if(isNaN(score)||score<0||score>100) return alert("درجة غير صحيحة");
+
+ const mistakes=[];
+ results.forEach((r,i)=>{
+  if(r.innerText==="✖️") mistakes.push(criteriaList[i].name);
+ });
+
+ evaluations.push({
+  name:emp,
+  date:new Date().toLocaleDateString('ar-SA'),
+  score:score,
+  warning:score===0?1:0,
+  mistakes:mistakes
+ });
+
+ localStorage.setItem("evaluations",JSON.stringify(evaluations));
+
+ let badge=score>=90?"green":score>=75?"yellow":"red";
+ alert(`تم الحفظ | الدرجة: ${score}`);
+ resetMarks();
 }
 
-/* إعادة تعيين */
-function resetView(){
-  document.querySelectorAll('.result').forEach(r=>r.innerText='');
-}
-
-/* إدارة الأسماء */
-function loadEmployeeNames(){
-  const sel=document.getElementById("employeeSelect");
-  sel.innerHTML="";
-  employees.forEach(e=>sel.innerHTML+=`<option>${e}</option>`);
-}
+/* ===== إدارة الموظفين ===== */
 function addEmployee(){
-  const name=prompt("اكتب اسم الموظف الجديد:");
-  if(name){employees.push(name);loadEmployeeNames();}
+ const n=prompt("اسم الموظف:");
+ if(n){employees.push(n);saveEmployees();}
 }
-function addMultipleEmployees(){
-  const text=document.getElementById("bulkEmployees").value;
-  if(!text) return alert("لا توجد أسماء");
-  const names=text.split(/\r?\n/).map(n=>n.trim()).filter(n=>n);
-  employees.push(...names);
-  employees=[...new Set(employees)]; // إزالة التكرار
-  loadEmployeeNames();
-  alert(names.length+" أسماء تم إضافتها ✔️");
+function addBulk(){
+ const lines=document.getElementById("bulk").value.split(/\n/).map(x=>x.trim()).filter(x=>x);
+ employees=[...new Set([...employees,...lines])];
+ saveEmployees();
 }
 function deleteEmployee(){
-  const sel=document.getElementById("employeeSelect");
-  const name=sel.value;
-  if(!name) return alert("اختر موظف للحذف");
-  if(confirm("هل تريد حذف "+name+"؟")){
-    employees=employees.filter(e=>e!==name);
-    loadEmployeeNames();
-    localStorage.setItem("employees",JSON.stringify(employees));
-    alert(name+" تم حذفه ✔️");
-  }
+ const e=document.getElementById("employee").value;
+ if(e && confirm("حذف الموظف؟")){
+  employees=employees.filter(x=>x!==e);
+  saveEmployees();
+ }
 }
 function saveEmployees(){
-  localStorage.setItem("employees",JSON.stringify(employees));
-  alert("تم حفظ قائمة الموظفين ✔️");
+ localStorage.setItem("employees",JSON.stringify(employees));
+ loadEmployees();
 }
 
-/* حذف كل بيانات الشهر */
-function deleteAllData(){
-  if(confirm("هل أنت متأكد من حذف كل بيانات هذا الشهر؟")){
-    localStorage.removeItem("evaluations");
-    evaluations=[];
-    alert("تم حذف كل بيانات الشهر ✔️");
-  }
+/* ===== Excel ===== */
+function exportExcel(){
+ if(evaluations.length===0) return alert("لا توجد بيانات");
+
+ const summary=[["الموظف","عدد التقييمات","متوسط الدرجة","أعلى","أقل","إنذارات","مستوى الأداء"]];
+ employees.forEach(e=>{
+  const ev=evaluations.filter(x=>x.name===e);
+  if(!ev.length) return;
+  const scores=ev.map(x=>x.score);
+  const avg=(scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(2);
+  const level=avg>=90?"ممتاز":avg>=75?"جيد":"يحتاج تحسين";
+  summary.push([e,ev.length,avg,Math.max(...scores),Math.min(...scores),ev.filter(x=>x.warning).length,level]);
+ });
+
+ const mistakesCount={};
+ evaluations.forEach(e=>e.mistakes.forEach(m=>mistakesCount[m]=(mistakesCount[m]||0)+1));
+ const mistakeSheet=[["البند","عدد التكرار","النسبة %"]];
+ Object.keys(mistakesCount).forEach(m=>{
+  mistakeSheet.push([m,mistakesCount[m],((mistakesCount[m]/evaluations.length)*100).toFixed(1)]);
+ });
+
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summary),"Employees Summary");
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mistakeSheet),"Mistake Analysis");
+ XLSX.writeFile(wb,"Quality_Report.xlsx");
 }
 
-/* تنزيل Excel احترافي مع ألوان متدرجة */
-function downloadExcel(){
-  if(evaluations.length===0) return alert("لا توجد بيانات");
-
-  const matrix={};
-  employees.forEach(e=>matrix[e]={});
-  criteriaList.forEach(c=>employees.forEach(e=>matrix[e][c]=0));
-  evaluations.forEach(ev=>{
-    if(ev.score==='✖️') matrix[ev.name][ev.criteria]++;
-  });
-
-  // الصفحة 1: مصفوفة الموظفين × البنود
-  const sheet1=[["الموظف",...criteriaList]];
-  employees.forEach(e=>{
-    const row=[e];
-    criteriaList.forEach(c=>row.push(matrix[e][c]));
-    sheet1.push(row);
-  });
-
-  // الصفحة 2: الإحصاءات الشهرية
-  const stats=[["الموظف","عدد الأخطاء","إجمالي البنود","النسبة %"]];
-  employees.forEach(e=>{
-    const errors=criteriaList.reduce((sum,c)=>sum+matrix[e][c],0);
-    const total=criteriaList.length;
-    const pct=((total-errors)/total*100).toFixed(2);
-    stats.push([e,errors,total,pct]);
-  });
-
-  // الصفحة 3: أفضل وأسوأ 5
-  const sortedStats=[...stats].slice(1).sort((a,b)=>a[1]-b[1]);
-  const top5=[["أفضل 5"],["الموظف","عدد الأخطاء"],...sortedStats.slice(0,5)];
-  const bottom5=[["أسوأ 5"],["الموظف","عدد الأخطاء"],...sortedStats.slice(-5)];
-  const sheet3=[...top5,[],...bottom5];
-
-  // الصفحة 4: Dashboard
-  const totalPerCriteria=criteriaList.map(c=>employees.reduce((sum,e)=>sum+matrix[e][c],0));
-  const sheet4=[["البند","عدد الأخطاء"]];
-  criteriaList.forEach((c,i)=>sheet4.push([c,totalPerCriteria[i]]));
-
-  const wb=XLSX.utils.book_new();
-  const ws1=XLSX.utils.aoa_to_sheet(sheet1);
-  const ws2=XLSX.utils.aoa_to_sheet(stats);
-  const ws3=XLSX.utils.aoa_to_sheet(sheet3);
-  const ws4=XLSX.utils.aoa_to_sheet(sheet4);
-
-  // تدرج الألوان حسب شدة الأخطاء
-  function styleSheet(ws){
-    const range=XLSX.utils.decode_range(ws['!ref']);
-    for(let C=range.s.c; C<=range.e.c; ++C){
-      const cellAddress=XLSX.utils.encode_cell({r:0,c:C});
-      if(ws[cellAddress]) ws[cellAddress].s={font:{bold:true},fill:{fgColor:{rgb:"FFB0C4DE"}}};
-    }
-    for(let R=1; R<=range.e.r; R++){
-      for(let C=0; C<=range.e.c; C++){
-        const cellAddress=XLSX.utils.encode_cell({r:R,c:C});
-        if(ws[cellAddress]){
-          ws[cellAddress].s={fill:{fgColor:{rgb:R%2===0?"FFFFFFFF":"FFF0F8FF"}}};
-          if(C>0 && typeof ws[cellAddress].v==='number'){
-            let val=ws[cellAddress].v;
-            if(val===0){
-              ws[cellAddress].s.fill={fgColor:{rgb:"FFDAF7DC"}}; // أخضر فاتح
-            } else if(val<=2){
-              ws[cellAddress].s.fill={fgColor:{rgb:"FFFFF3AA"}}; // أصفر فاتح
-            } else if(val<=4){
-              ws[cellAddress].s.fill={fgColor:{rgb:"FFFFC87C"}}; // برتقالي
-            } else {
-              ws[cellAddress].s.fill={fgColor:{rgb:"FFFF6B6B"}}; // أحمر غامق
-            }
-          }
-        }
-      }
-    }
-  }
-
-  [ws1,ws2,ws3,ws4].forEach(styleSheet);
-
-  XLSX.utils.book_append_sheet(wb,ws1,"التقييم");
-  XLSX.utils.book_append_sheet(wb,ws2,"الإحصاءات");
-  XLSX.utils.book_append_sheet(wb,ws3,"أفضل وأسوأ 5");
-  XLSX.utils.book_append_sheet(wb,ws4,"Dashboard");
-
-  XLSX.writeFile(wb,"تقييمات_الموظفين.xlsx");
+/* ===== حذف الشهر ===== */
+function clearMonth(){
+ if(confirm("حذف كل بيانات الشهر؟")){
+  localStorage.removeItem("evaluations");
+  evaluations=[];
+  alert("تم الحذف");
+ }
 }
 
-/* التشغيل أول مرة */
+loadEmployees();
 renderCriteria();
-loadEmployeeNames();
 </script>
 
 </body>
 </html>
+
