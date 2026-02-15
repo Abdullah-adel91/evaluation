@@ -10,11 +10,27 @@ body{direction:rtl;font-family:Arial;background:#f4f6f8;padding:12px}
 h2,h3{text-align:center}
 .box{background:#fff;padding:12px;margin:10px 0;border-radius:10px}
 .item{border-bottom:1px solid #eee;padding:8px 0}
-button{padding:6px 12px;margin:4px;font-size:15px}
-select,textarea{width:100%;padding:8px;margin-top:6px}
+button{padding:6px 12px;margin:4px;font-size:15px;cursor:pointer}
+select{padding:8px;width:70%}
 .result{font-weight:bold;margin-right:10px}
 .good{color:green}
 .bad{color:red}
+.popup{
+display:none;
+position:fixed;
+top:0;left:0;right:0;bottom:0;
+background:rgba(0,0,0,0.5);
+z-index:9999;
+}
+.popup-content{
+background:#fff;
+width:90%;
+max-width:400px;
+margin:100px auto;
+padding:15px;
+border-radius:10px;
+}
+textarea{width:100%;padding:8px}
 </style>
 </head>
 <body>
@@ -24,6 +40,7 @@ select,textarea{width:100%;padding:8px;margin-top:6px}
 <div class="box">
 <h3>اختيار الموظف</h3>
 <select id="employee"></select>
+<button onclick="openEmployeePopup()">➕ إضافة موظفين</button>
 </div>
 
 <div class="box">
@@ -40,7 +57,19 @@ select,textarea{width:100%;padding:8px;margin-top:6px}
 <button onclick="clearAll()">حذف بيانات الشهر</button>
 </div>
 
+<!-- Popup إضافة موظفين -->
+<div id="employeePopup" class="popup">
+<div class="popup-content">
+<h3>إضافة موظفين</h3>
+<textarea id="employeeBulk" rows="8" placeholder="الصق الأسماء هنا (كل اسم في سطر)"></textarea>
+<br><br>
+<button onclick="saveEmployeesBulk()">حفظ</button>
+<button onclick="closeEmployeePopup()">إلغاء</button>
+</div>
+</div>
+
 <script>
+
 const criteriaList=[
 "ترحيب بداية المكالمة وذكر الاسم",
 "طلب اسم المشترك وذكره مرة واحدة",
@@ -88,7 +117,8 @@ function mark(btn,val){
 
 function resetMarks(){
  document.querySelectorAll(".result").forEach(r=>{
-   r.textContent="";r.dataset.val="";
+   r.textContent="";
+   r.dataset.val="";
  });
 }
 
@@ -109,6 +139,7 @@ function showMistakes(){
 function finalSave(){
  let emp=document.getElementById("employee").value;
  if(!emp) return alert("اختر موظف");
+
  let results=[...document.querySelectorAll(".result")];
  if(results.some(r=>r.dataset.val==="")) return alert("قيّم كل البنود");
 
@@ -135,28 +166,19 @@ function finalSave(){
  alert("تم حفظ التقييم بنجاح ✔️");
 }
 
-function clearAll(){
- if(confirm("حذف كل البيانات؟")){
-   localStorage.clear();
-   employees=[];evaluations=[];
-   renderEmployees();
- }
-}
-
 function exportExcel(){
  if(!evaluations.length) return alert("لا توجد بيانات");
 
- // KPIs
- let avg=(evaluations.reduce((s,x)=>s+x.score,0)/evaluations.length).toFixed(2);
- let warns=evaluations.filter(x=>x.warning).length;
+ let avgTeam=(evaluations.reduce((s,x)=>s+x.score,0)/evaluations.length).toFixed(2);
+ let totalWarn=evaluations.filter(x=>x.warning).length;
+
  let kpis=[
  ["المؤشر","القيمة"],
  ["عدد التقييمات",evaluations.length],
- ["متوسط الفريق",avg],
- ["عدد الإنذارات",warns]
+ ["متوسط الفريق",avgTeam],
+ ["عدد الإنذارات",totalWarn]
  ];
 
- // Employee Summary (8 تقييمات)
  let summary=[["الموظف","عدد التقييمات",
  "تقييم1","تقييم2","تقييم3","تقييم4",
  "تقييم5","تقييم6","تقييم7","تقييم8",
@@ -166,20 +188,19 @@ function exportExcel(){
    let ev=evaluations.filter(v=>v.name===e);
    let scores=ev.map(v=>v.score).slice(0,8);
    while(scores.length<8) scores.push("");
-   let avg=(scores.filter(x=>x!=="").reduce((a,b)=>a+b,0)/scores.filter(x=>x!=="").length||0).toFixed(2);
+   let valid=scores.filter(x=>x!=="");
+   let avg=(valid.reduce((a,b)=>a+b,0)/valid.length||0).toFixed(2);
    let warn=ev.filter(x=>x.warning).length;
    summary.push([e,ev.length,...scores,avg,warn]);
  });
 
- // يحتاج متابعة
- let follow=[["الموظف","المتوسط","السبب"]];
+ let follow=[["الموظف","المتوسط","الحالة"]];
  summary.slice(1).forEach(r=>{
    if(r[10]<75){
      follow.push([r[0],r[10],"يحتاج متابعة"]);
    }
  });
 
- // تحليل الأخطاء
  let err=[["البند","عدد التكرار"]];
  criteriaList.forEach(c=>{
    let count=0;
@@ -197,8 +218,44 @@ function exportExcel(){
  XLSX.writeFile(wb,"تقييم_الجودة.xlsx");
 }
 
+function clearAll(){
+ if(confirm("حذف كل البيانات؟")){
+   localStorage.clear();
+   employees=[];
+   evaluations=[];
+   renderEmployees();
+ }
+}
+
+function openEmployeePopup(){
+ document.getElementById("employeePopup").style.display="block";
+}
+
+function closeEmployeePopup(){
+ document.getElementById("employeePopup").style.display="none";
+ document.getElementById("employeeBulk").value="";
+}
+
+function saveEmployeesBulk(){
+ let txt=document.getElementById("employeeBulk").value;
+ if(!txt) return alert("لا توجد أسماء");
+
+ let names=txt.split(/\r?\n/)
+   .map(n=>n.trim())
+   .filter(n=>n);
+
+ employees.push(...names);
+ employees=[...new Set(employees)];
+
+ localStorage.setItem("employees",JSON.stringify(employees));
+ renderEmployees();
+ closeEmployeePopup();
+ alert("تمت إضافة "+names.length+" موظف ✔️");
+}
+
 renderEmployees();
 renderCriteria();
+
 </script>
 </body>
 </html>
