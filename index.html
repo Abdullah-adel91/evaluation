@@ -22,18 +22,15 @@ select,textarea{width:100%;padding:8px;margin-top:6px}
 <h2>نظام تقييم المكالمات</h2>
 
 <div class="box">
-<h3>إدارة الموظفين</h3>
+<h3>اختيار الموظف</h3>
 <select id="employee"></select>
-<button onclick="addEmployee()">إضافة موظف</button>
-<button onclick="deleteEmployee()">حذف</button>
-<textarea id="bulk" rows="4" placeholder="أدخل الأسماء (سطر لكل اسم)"></textarea>
-<button onclick="addBulk()">إضافة دفعة</button>
 </div>
 
 <div class="box">
 <h3>بنود التقييم</h3>
 <div id="criteria"></div>
-<button onclick="saveEvaluation()">حفظ التقييم</button>
+<button onclick="showMistakes()">تصفية الأخطاء</button>
+<button onclick="finalSave()">حفظ التقييم النهائي</button>
 <button onclick="resetMarks()">إعادة التقييم</button>
 </div>
 
@@ -68,33 +65,6 @@ function renderEmployees(){
  employees.forEach(e=>sel.innerHTML+=`<option>${e}</option>`);
 }
 
-function addEmployee(){
- let n=prompt("اسم الموظف:");
- if(n){employees.push(n);saveEmp();}
-}
-
-function addBulk(){
- let txt=document.getElementById("bulk").value;
- if(!txt) return;
- txt.split(/\n/).forEach(n=>{
-   if(n.trim()) employees.push(n.trim());
- });
- employees=[...new Set(employees)];
- saveEmp();
-}
-
-function deleteEmployee(){
- let e=document.getElementById("employee").value;
- if(!e) return;
- employees=employees.filter(x=>x!==e);
- saveEmp();
-}
-
-function saveEmp(){
- localStorage.setItem("employees",JSON.stringify(employees));
- renderEmployees();
-}
-
 function renderCriteria(){
  let d=document.getElementById("criteria");
  d.innerHTML="";
@@ -111,7 +81,7 @@ function renderCriteria(){
 
 function mark(btn,val){
  let r=btn.parentElement.querySelector(".result");
- r.textContent=val? "✔️":"✖️";
+ r.textContent=val?"✔️":"✖️";
  r.className="result "+(val?"good":"bad");
  r.dataset.val=val;
 }
@@ -122,14 +92,28 @@ function resetMarks(){
  });
 }
 
-function saveEvaluation(){
+function showMistakes(){
+ let emp=document.getElementById("employee").value;
+ if(!emp) return alert("اختر موظف");
+ let results=[...document.querySelectorAll(".result")];
+ if(results.some(r=>r.dataset.val==="")) return alert("قيّم كل البنود");
+
+ let mistakes=[];
+ results.forEach((r,i)=>{
+   if(r.dataset.val==="0") mistakes.push("- "+criteriaList[i]);
+ });
+
+ alert(mistakes.length?mistakes.join("\n"):"لا توجد أخطاء ✔️");
+}
+
+function finalSave(){
  let emp=document.getElementById("employee").value;
  if(!emp) return alert("اختر موظف");
  let results=[...document.querySelectorAll(".result")];
  if(results.some(r=>r.dataset.val==="")) return alert("قيّم كل البنود");
 
  let score=prompt("أدخل درجة الفيرنت:");
- if(score===null || score==="") return;
+ if(score===null||score==="") return;
  score=Number(score);
 
  let mistakes=[];
@@ -146,8 +130,9 @@ function saveEvaluation(){
  });
 
  localStorage.setItem("evaluations",JSON.stringify(evaluations));
- alert("تم حفظ التقييم");
+ document.getElementById("employee").value="";
  resetMarks();
+ alert("تم حفظ التقييم بنجاح ✔️");
 }
 
 function clearAll(){
@@ -161,43 +146,55 @@ function clearAll(){
 function exportExcel(){
  if(!evaluations.length) return alert("لا توجد بيانات");
 
- // Sheet 1: Summary
- let sum=[["الموظف","عدد التقييمات","متوسط الدرجة","عدد الإنذارات"]];
+ // KPIs
+ let avg=(evaluations.reduce((s,x)=>s+x.score,0)/evaluations.length).toFixed(2);
+ let warns=evaluations.filter(x=>x.warning).length;
+ let kpis=[
+ ["المؤشر","القيمة"],
+ ["عدد التقييمات",evaluations.length],
+ ["متوسط الفريق",avg],
+ ["عدد الإنذارات",warns]
+ ];
+
+ // Employee Summary (8 تقييمات)
+ let summary=[["الموظف","عدد التقييمات",
+ "تقييم1","تقييم2","تقييم3","تقييم4",
+ "تقييم5","تقييم6","تقييم7","تقييم8",
+ "المتوسط","الإنذارات"]];
+
  employees.forEach(e=>{
    let ev=evaluations.filter(v=>v.name===e);
-   let avg=(ev.reduce((s,x)=>s+x.score,0)/ev.length||0).toFixed(2);
+   let scores=ev.map(v=>v.score).slice(0,8);
+   while(scores.length<8) scores.push("");
+   let avg=(scores.filter(x=>x!=="").reduce((a,b)=>a+b,0)/scores.filter(x=>x!=="").length||0).toFixed(2);
    let warn=ev.filter(x=>x.warning).length;
-   sum.push([e,ev.length,avg,warn]);
+   summary.push([e,ev.length,...scores,avg,warn]);
  });
 
- // Sheet 2: Top / Bottom
- let ranked=[...sum].slice(1).sort((a,b)=>b[2]-a[2]);
- let tb=[["أفضل 5"],...ranked.slice(0,5),[],["أسوأ 5"],...ranked.slice(-5)];
+ // يحتاج متابعة
+ let follow=[["الموظف","المتوسط","السبب"]];
+ summary.slice(1).forEach(r=>{
+   if(r[10]<75){
+     follow.push([r[0],r[10],"يحتاج متابعة"]);
+   }
+ });
 
- // Sheet 3: Errors
+ // تحليل الأخطاء
  let err=[["البند","عدد التكرار"]];
  criteriaList.forEach(c=>{
    let count=0;
-   evaluations.forEach(e=>{if(e.mistakes.includes(c)) count++;});
+   evaluations.forEach(e=>{
+     if(e.mistakes.includes(c)) count++;
+   });
    err.push([c,count]);
  });
 
- // Sheet 4: Dashboard
- let totalEval=evaluations.length;
- let avgAll=(evaluations.reduce((s,x)=>s+x.score,0)/totalEval).toFixed(2);
- let totalWarn=evaluations.filter(x=>x.warning).length;
- let dash=[
- ["إجمالي التقييمات",totalEval],
- ["متوسط الأداء العام",avgAll],
- ["عدد الإنذارات",totalWarn]
- ];
-
  let wb=XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),"Summary");
- XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(tb),"Top_Bottom");
- XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(err),"Errors");
- XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(dash),"Dashboard");
- XLSX.writeFile(wb,"تقييم_الموظفين.xlsx");
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(kpis),"KPIs");
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summary),"ملخص الموظفين");
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(follow),"يحتاج متابعة");
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(err),"تحليل الأخطاء");
+ XLSX.writeFile(wb,"تقييم_الجودة.xlsx");
 }
 
 renderEmployees();
