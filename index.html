@@ -18,12 +18,10 @@
   button.secondary{background:#6b7280}
   button.warn{background:#dc2626}
   label{font-weight:600;margin-left:8px}
-  /* العرض البسيط للبند مثل النسخة الأولى */
-  .criteria-simple{background:#fff;margin:8px 0;padding:10px;border-radius:8px}
-  .criteria-simple .text{display:inline-block;vertical-align:middle}
-  .criteria-simple .actions{display:inline-block;vertical-align:middle;margin-left:12px}
-  .criteria-simple .actions button{margin-left:6px}
-  .result{font-weight:700;margin-right:8px;font-size:18px;min-width:36px;display:inline-block}
+  /* هذه قواعد للمظهر العام — عرض البنود سيطابق النسخة القديمة بالضبط */
+  .criteria-old{background:#fff;margin:6px 0;padding:10px 8px;border-radius:8px}
+  .criteria-old .actions{margin-top:6px}
+  .result{font-size:18px;font-weight:700;margin-right:8px;display:inline-block;min-width:36px}
   .popup{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9999;
     background:#fff;padding:16px;border-radius:10px;box-shadow:0 6px 24px rgba(2,6,23,0.15);width:90%;max-width:480px}
   textarea{width:100%;min-height:120px;padding:8px;font-size:15px;border-radius:6px;border:1px solid #e5e7eb}
@@ -32,7 +30,7 @@
   footer{margin-top:18px;text-align:center;color:#64748b;font-size:13px}
   @media (max-width:480px){
     .controls{flex-direction:column}
-    .criteria-simple{font-size:15px}
+    .criteria-old{font-size:15px}
     button{width:100%}
   }
 </style>
@@ -53,7 +51,7 @@
   </div>
 </div>
 
-<!-- بنود التقييم (بصيغة النسخة الأولى: عرض بسيط لكل بند مع زر ✔ و ✖ بدون تلوين) -->
+<!-- بنود التقييم (واجهه قديمة بالضبط: كل بند يظهر كسطر مع أزرار ✔️ و ✖️ ثم span للنتيجة) -->
 <div class="item">
   <h3 style="margin:0 0 8px 0">تقييم المكالمات</h3>
   <div id="criteriaContainer"></div>
@@ -100,22 +98,20 @@
   </div>
 </div>
 
-<footer>صُنع لك — إذا احتجت أي تعديل قل لي وأنا أنفذ بسرعة.</footer>
+<footer>صُنع لك — إذا احتجت تعديل بسيط علشان يطابق بالضبط شكل النسخة القديمة قل لي.</footer>
 
 <script>
-/* ============================
-   Stable localStorage keys
-   ============================ */
+/* ======= مفاتيح localStorage ثابتة ======= */
 const KEY_EMPLOYEES = "employees";
 const KEY_CRITERIA = "criteriaList";
 const KEY_EVALS = "evaluations";
 const KEY_LAST = "lastEvaluated";
 
-/* Default criteria full list */
+/* القائمة الافتراضية للبنود (كما طلبت سابقاً) */
 const DEFAULT_CRITERIA = [
   "ترحيب بداية المكالمة وذكر الاسم",
-  "طلب اسم المشترك وذكره مرة واحدة",
-  "أخذ رقم الحساب أو استخدام وسائل مساعدة",
+  "طلب إسم المشترك وذكره مرة واحدة",
+  "أخذ رقم الحساب أو استخدام وسائل مساعده",
   "مطابقة بيانات الحساب",
   "أخذ إذن المشترك قبل وضعه على الانتظار",
   "إدارة وقت المكالمة",
@@ -127,13 +123,13 @@ const DEFAULT_CRITERIA = [
   "إنهاء صحيح للمكالمة"
 ];
 
-/* Load data or defaults */
+/* ====== جلب البيانات أو تعيين الافتراضي ====== */
 let employees = JSON.parse(localStorage.getItem(KEY_EMPLOYEES)) || [];
 let criteriaList = JSON.parse(localStorage.getItem(KEY_CRITERIA)) || DEFAULT_CRITERIA.slice();
 let evaluations = JSON.parse(localStorage.getItem(KEY_EVALS)) || [];
 let lastEvaluated = localStorage.getItem(KEY_LAST) || "";
 
-/* ===== Render UI (simple criteria display like original) ===== */
+/* ====== واجهة عرض البنود — **نسخة قديمة بالضبط** ====== */
 function loadEmployeeNames(){
   const sel = document.getElementById("employeeSelect");
   sel.innerHTML = "";
@@ -151,58 +147,58 @@ function loadEmployeeNames(){
   }
 }
 
+/* هنا ننسخ بالضبط هيكل النسخة الأولى للعرض */
 function renderCriteria(){
-  const container = document.getElementById("criteriaContainer");
-  container.innerHTML = "";
-  criteriaList.forEach((c, idx) => {
-    const div = document.createElement("div");
-    div.className = "criteria-simple";
-    // simple layout: text then buttons then result span (no coloring)
-    div.innerHTML = `
-      <div>
-        <span class="text">${c}</span>
-        <span class="actions">
-          <button onclick="setMark(this,'✔️')">✔️</button>
-          <button onclick="setMark(this,'✖️')">✖️</button>
-          <span class="result" data-index="${idx}"></span>
-        </span>
+  const div = document.getElementById("criteriaContainer");
+  div.innerHTML = "";
+  criteriaList.forEach((c, i) => {
+    const item = document.createElement("div");
+    item.className = "criteria-old";
+    // هيكل مطابق للنسخة القديمة: نص البند، سطر جديد ثم أزرار ثم span للنتيجة
+    item.innerHTML = `
+      ${c}<br>
+      <div class="actions">
+        <button onclick="setMark(this,'✔️')">✔️</button>
+        <button onclick="setMark(this,'✖️')">✖️</button>
+        <span class="result" data-index="${i}"></span>
       </div>
     `;
-    container.appendChild(div);
+    div.appendChild(item);
   });
 }
 
 function setMark(btn, val){
-  const parent = btn.closest(".criteria-simple");
+  // نفس سلوك النسخة القديمة: نضع النص داخل span فقط، بدون أي تلوين
+  const parent = btn.closest(".criteria-old");
   const span = parent.querySelector(".result");
-  span.textContent = val;
+  if(span) span.innerText = val;
 }
 
 function resetView(){
-  document.querySelectorAll(".result").forEach(r => r.textContent = "");
+  document.querySelectorAll(".result").forEach(r => r.innerText = "");
 }
 
 function showMistakes(){
   const results = [...document.querySelectorAll(".result")];
   const mistakes = [];
   results.forEach((r, i) => {
-    if(r.textContent === "✖️") mistakes.push("- " + (criteriaList[i] || ("بند #" + (i+1))));
+    if(r.innerText === "✖️") mistakes.push("- " + (criteriaList[i] || ("بند #" + (i+1))));
   });
   if(mistakes.length === 0) alert("لا توجد أخطاء ✔️");
   else alert("الأخطاء المسجّلة:\n\n" + mistakes.join("\n"));
 }
 
-/* Save evaluation */
+/* ====== حفظ التقييم ====== */
 function saveEvaluation(){
   const sel = document.getElementById("employeeSelect");
   const employee = sel.value;
   if(!employee) return alert("اختر موظف");
 
   const results = [...document.querySelectorAll(".result")];
-  if(results.some(r => r.textContent === "")) return alert("قيّم كل البنود قبل الحفظ");
+  if(results.some(r => r.innerText === "")) return alert("قيّم كل البنود قبل الحفظ");
 
   const mistakes = [];
-  results.forEach((r,i) => { if(r.textContent === "✖️") mistakes.push(criteriaList[i]); });
+  results.forEach((r,i) => { if(r.innerText === "✖️") mistakes.push(criteriaList[i]); });
 
   const scoreStr = prompt("أدخل درجة الفيرنت (0 - 100):");
   if(scoreStr === null) return;
@@ -225,7 +221,7 @@ function saveEvaluation(){
   resetView();
 }
 
-/* Reset month (delete evaluations only) */
+/* ====== حذف بيانات الشهر ====== */
 function resetMonthData(){
   if(!confirm("هل أنت متأكد أنك تريد حذف جميع تقييمات هذا الشهر والبدء من جديد؟")) return;
   evaluations = [];
@@ -236,7 +232,7 @@ function resetMonthData(){
   alert("تم حذف بيانات الشهر ✔️");
 }
 
-/* ===== Popups: employees & criteria management ===== */
+/* ====== Popups: إضافة موظفين و إدارة البنود ====== */
 function openEmployeePopup(){ document.getElementById("employeePopup").style.display = "block"; }
 function closeEmployeePopup(){ document.getElementById("employeePopup").style.display = "none"; }
 
@@ -245,23 +241,19 @@ function saveEmployeesBulk(){
   const names = txt.split(/\r?\n/).map(s => s.trim()).filter(s => s);
   if(names.length === 0){ alert("لا توجد أسماء"); return; }
   employees.push(...names);
-  employees = [...new Set(employees)]; // remove duplicates
+  employees = [...new Set(employees)];
   localStorage.setItem(KEY_EMPLOYEES, JSON.stringify(employees));
   loadEmployeeNames();
   closeEmployeePopup();
-  alert(names.length + " موظف تمت إضافتهم ✔️");
+  alert(names.length + " موظف تم إضافتهم ✔️");
 }
 
-/* Criteria popup */
 function openCriteriaPopup(){
   const div = document.getElementById("criteriaManage");
   div.innerHTML = "";
-  criteriaList.forEach((c, i) => {
+  criteriaList.forEach((c,i) => {
     const row = document.createElement("div");
-    row.style.display = "flex";
-    row.style.justifyContent = "space-between";
-    row.style.alignItems = "center";
-    row.style.padding = "6px 0";
+    row.style.display = "flex"; row.style.justifyContent = "space-between"; row.style.padding = "6px 0";
     row.innerHTML = `<div style="flex:1">${c}</div><div><button onclick="deleteCriteria(${i})" class="secondary small">❌ حذف</button></div>`;
     div.appendChild(row);
   });
@@ -284,7 +276,7 @@ function deleteCriteria(i){
   openCriteriaPopup();
 }
 
-/* ===== Backup export/import ===== */
+/* ====== نسخ احتياطي استيراد/تصدير JSON ====== */
 function exportBackup(){
   const data = { employees, criteriaList, evaluations, lastEvaluated };
   const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
@@ -293,7 +285,6 @@ function exportBackup(){
   a.download = "qa_backup.json";
   a.click();
 }
-
 function importBackup(e){
   const file = e.target.files[0];
   if(!file) return;
@@ -324,16 +315,13 @@ function importBackup(e){
   e.target.value = "";
 }
 
-/* ===========================
-   EXCEL Export (ExcelJS) - professional sheets
-   =========================== */
+/* ====== تصدير Excel احترافي (ExcelJS) ====== */
 async function exportExcel(){
   if(typeof ExcelJS === "undefined"){
     alert("مكتبة ExcelJS غير متوفرة (راجع اتصال الإنترنت).");
     return;
   }
 
-  // group evaluations
   const grouped = {};
   evaluations.forEach(ev => {
     if(!grouped[ev.employee]) grouped[ev.employee] = {scores: [], warnings: 0};
@@ -345,7 +333,7 @@ async function exportExcel(){
   workbook.creator = "QA System";
   workbook.created = new Date();
 
-  /* ---- Overview ---- */
+  // Overview sheet
   const overview = workbook.addWorksheet("Overview");
   overview.views = [{state:'frozen', ySplit:1}];
   overview.columns = [
@@ -362,7 +350,6 @@ async function exportExcel(){
     {header:"المتوسط", key:"avg", width:14},
     {header:"الإنذارات", key:"warn", width:12}
   ];
-  // header styling
   overview.getRow(1).eachCell(cell => {
     cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'1E3A8A'}};
     cell.font = {color:{argb:'FFFFFF'}, bold:true};
@@ -403,7 +390,7 @@ async function exportExcel(){
     });
   });
 
-  /* ---- Top & Review ---- */
+  // Top & Review
   const topSheet = workbook.addWorksheet("Top & Review");
   topSheet.views = [{state:'frozen', ySplit:1}];
   topSheet.columns = [
@@ -449,7 +436,7 @@ async function exportExcel(){
     });
   });
 
-  /* ---- Performance Matrix ---- */
+  // Performance Matrix
   const matrixSheet = workbook.addWorksheet("Performance Matrix");
   matrixSheet.addRow(["الموظف", ...criteriaList]);
   matrixSheet.getRow(1).eachCell(c => {
@@ -484,7 +471,7 @@ async function exportExcel(){
     });
   });
 
-  /* ---- تفاصيل البنود ---- */
+  // تفاصيل البنود
   const detailSheet = workbook.addWorksheet("تفاصيل البنود");
   detailSheet.columns = [
     {header:"البند", key:"crit", width:50},
@@ -509,7 +496,7 @@ async function exportExcel(){
     r.eachCell(cell => { cell.border = {top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}}; });
   });
 
-  /* ---- KPIs ---- */
+  // KPIs
   const kpiSheet = workbook.addWorksheet("KPIs");
   const allScores = evaluations.map(e => e.score).filter(n => typeof n === "number");
   const teamAvg = allScores.length ? (allScores.reduce((a,b)=>a+b,0)/allScores.length) : 0;
@@ -530,7 +517,7 @@ async function exportExcel(){
   });
   kpiSheet.eachRow(r => r.eachCell(c => c.border = {top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}}));
 
-  /* ---- Save file (mobile-friendly) ---- */
+  // حفظ الإكسل (buffer -> blob) متوافق مع الموبايل
   workbook.xlsx.writeBuffer().then(buffer => {
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     saveAs(blob, "QA_Report_2.0.xlsx");
@@ -540,28 +527,19 @@ async function exportExcel(){
   });
 }
 
-/* INIT UI */
+/* ====== INIT ====== */
 function init(){
   if(!localStorage.getItem(KEY_CRITERIA)){
     localStorage.setItem(KEY_CRITERIA, JSON.stringify(criteriaList));
   } else {
-    try{
-      const stored = JSON.parse(localStorage.getItem(KEY_CRITERIA));
-      if(Array.isArray(stored)) criteriaList = stored;
-    }catch(e){}
+    try{ const stored = JSON.parse(localStorage.getItem(KEY_CRITERIA)); if(Array.isArray(stored)) criteriaList = stored; }catch(e){}
   }
   if(!localStorage.getItem(KEY_EMPLOYEES)){
     localStorage.setItem(KEY_EMPLOYEES, JSON.stringify(employees));
   } else {
-    try{
-      const stored = JSON.parse(localStorage.getItem(KEY_EMPLOYEES));
-      if(Array.isArray(stored)) employees = stored;
-    }catch(e){}
+    try{ const stored = JSON.parse(localStorage.getItem(KEY_EMPLOYEES)); if(Array.isArray(stored)) employees = stored; }catch(e){}
   }
-  try{
-    const evs = JSON.parse(localStorage.getItem(KEY_EVALS));
-    if(Array.isArray(evs)) evaluations = evs;
-  }catch(e){}
+  try{ const evs = JSON.parse(localStorage.getItem(KEY_EVALS)); if(Array.isArray(evs)) evaluations = evs; }catch(e){}
   lastEvaluated = localStorage.getItem(KEY_LAST) || lastEvaluated;
 
   loadEmployeeNames();
