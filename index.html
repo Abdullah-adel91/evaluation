@@ -18,9 +18,11 @@
   button.secondary{background:#6b7280}
   button.warn{background:#dc2626}
   label{font-weight:600;margin-left:8px}
-  .criteria-item{margin:8px 0;padding:8px;border-radius:8px;background:#fff}
-  .criteria-item button{margin-left:6px;margin-top:6px}
-  .result{font-weight:700;margin-right:8px;font-size:18px;min-width:36px;display:inline-block}
+  .criteria-item{margin:8px 0;padding:8px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:space-between}
+  .criteria-left{flex:1;padding-right:8px}
+  .criteria-actions{display:flex;gap:8px;align-items:center}
+  .criteria-actions button{padding:6px 10px;font-size:16px;border-radius:6px}
+  .result{font-weight:700;margin-right:8px;font-size:18px;min-width:36px;display:inline-block;text-align:center}
   .popup{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9999;
     background:#fff;padding:16px;border-radius:10px;box-shadow:0 6px 24px rgba(2,6,23,0.15);width:90%;max-width:480px}
   textarea{width:100%;min-height:120px;padding:8px;font-size:15px;border-radius:6px;border:1px solid #e5e7eb}
@@ -50,7 +52,7 @@
   </div>
 </div>
 
-<!-- بنود التقييم -->
+<!-- بنود التقييم (الواجهة بصيغة النسخة الأولى: زر صح وزر خطأ لكل بند) -->
 <div class="item">
   <h3 style="margin:0 0 8px 0">تقييم المكالمات</h3>
   <div id="criteriaContainer"></div>
@@ -97,52 +99,49 @@
   </div>
 </div>
 
-<!-- Simple error modal using alert (keeps UI small) -->
 <footer>صُنع لك — إذا احتجت أي تعديل قل لي وأنا أنفذ بسرعة.</footer>
 
 <script>
 /* ============================
-   DATA KEYS (stable names)
+   Stable localStorage keys
    ============================ */
 const KEY_EMPLOYEES = "employees";
 const KEY_CRITERIA = "criteriaList";
 const KEY_EVALS = "evaluations";
 const KEY_LAST = "lastEvaluated";
 
-/* ====== Default criteria (full list) ====== */
+/* Default criteria full list */
 const DEFAULT_CRITERIA = [
-"ترحيب بداية المكالمة وذكر الاسم",
-"طلب اسم المشترك وذكره مرة واحدة",
-"أخذ رقم الحساب أو استخدام وسائل مساعدة",
-"مطابقة بيانات الحساب",
-"أخذ إذن المشترك قبل وضعه على الانتظار",
-"إدارة وقت المكالمة",
-"شكر المشترك على الانتظار",
-"استخدام كلمات عامية",
-"نبرة صوت واضحة",
-"التسويق لتوثيق العداد",
-"توثيق المكالمة",
-"إنهاء صحيح للمكالمة"
+  "ترحيب بداية المكالمة وذكر الاسم",
+  "طلب اسم المشترك وذكره مرة واحدة",
+  "أخذ رقم الحساب أو استخدام وسائل مساعدة",
+  "مطابقة بيانات الحساب",
+  "أخذ إذن المشترك قبل وضعه على الانتظار",
+  "إدارة وقت المكالمة",
+  "شكر المشترك على الانتظار",
+  "استخدام كلمات عامية",
+  "نبرة صوت واضحة",
+  "التسويق لتوثيق العداد",
+  "توثيق المكالمة",
+  "إنهاء صحيح للمكالمة"
 ];
 
-/* ====== Load from localStorage or defaults ====== */
+/* Load data or defaults */
 let employees = JSON.parse(localStorage.getItem(KEY_EMPLOYEES)) || [];
 let criteriaList = JSON.parse(localStorage.getItem(KEY_CRITERIA)) || DEFAULT_CRITERIA.slice();
 let evaluations = JSON.parse(localStorage.getItem(KEY_EVALS)) || [];
 let lastEvaluated = localStorage.getItem(KEY_LAST) || "";
 
-/* ====== Rendering functions ====== */
+/* ===== Render UI (criteria as in original: ✔️ / ✖️ buttons) ===== */
 function loadEmployeeNames(){
   const sel = document.getElementById("employeeSelect");
   sel.innerHTML = "";
-  // keep original order
-  employees.forEach(emp=>{
+  employees.forEach(emp => {
     const opt = document.createElement("option");
     opt.value = emp;
     opt.textContent = emp + (emp === lastEvaluated ? " ⭐" : "");
     sel.appendChild(opt);
   });
-  // add a placeholder if empty
   if(employees.length === 0){
     const opt = document.createElement("option");
     opt.value = "";
@@ -154,71 +153,60 @@ function loadEmployeeNames(){
 function renderCriteria(){
   const container = document.getElementById("criteriaContainer");
   container.innerHTML = "";
-  criteriaList.forEach((c, idx)=>{
+  criteriaList.forEach((c, idx) => {
     const div = document.createElement("div");
     div.className = "criteria-item";
     div.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <div style="flex:1">${c}</div>
-        <div>
-          <button onclick="setMark(this,'✔️')">✔️</button>
-          <button onclick="setMark(this,'✖️')">✖️</button>
-          <span class="result" data-index="${idx}"></span>
-        </div>
+      <div class="criteria-left">${c}</div>
+      <div class="criteria-actions">
+        <button onclick="setMark(this,'✔️')">✔️</button>
+        <button onclick="setMark(this,'✖️')">✖️</button>
+        <span class="result" data-index="${idx}"></span>
       </div>
     `;
     container.appendChild(div);
   });
 }
 
-/* helper to set mark */
 function setMark(btn, val){
   const parent = btn.closest(".criteria-item");
   const span = parent.querySelector(".result");
   span.textContent = val;
 }
 
-/* reset all marks */
 function resetView(){
   document.querySelectorAll(".result").forEach(r => r.textContent = "");
 }
 
-/* show mistakes (list) */
+/* Show mistakes (filter) */
 function showMistakes(){
   const results = [...document.querySelectorAll(".result")];
   const mistakes = [];
-  results.forEach((r, i)=>{
+  results.forEach((r,i) => {
     if(r.textContent === "✖️") mistakes.push("- " + (criteriaList[i] || ("بند #" + (i+1))));
   });
-  if(mistakes.length === 0) {
-    alert("لا توجد أخطاء ✔️");
-  } else {
-    alert("الأخطاء المسجّلة:\n\n" + mistakes.join("\n"));
-  }
+  if(mistakes.length === 0) alert("لا توجد أخطاء ✔️");
+  else alert("الأخطاء المسجّلة:\n\n" + mistakes.join("\n"));
 }
 
-/* save evaluation */
+/* Save evaluation */
 function saveEvaluation(){
   const sel = document.getElementById("employeeSelect");
   const employee = sel.value;
   if(!employee) return alert("اختر موظف");
 
-  // ensure all marked
   const results = [...document.querySelectorAll(".result")];
   if(results.some(r => r.textContent === "")) return alert("قيّم كل البنود قبل الحفظ");
 
-  // collect mistakes
   const mistakes = [];
-  results.forEach((r,i) => {
-    if(r.textContent === "✖️") mistakes.push(criteriaList[i]);
-  });
+  results.forEach((r,i) => { if(r.textContent === "✖️") mistakes.push(criteriaList[i]); });
 
   const scoreStr = prompt("أدخل درجة الفيرنت (0 - 100):");
-  if(scoreStr === null) return; // cancelled
+  if(scoreStr === null) return;
   const score = Number(scoreStr);
   if(isNaN(score) || score < 0) return alert("درجة غير صحيحة");
 
-  // push evaluation object
+  // push
   evaluations.push({
     employee,
     score,
@@ -236,7 +224,7 @@ function saveEvaluation(){
   resetView();
 }
 
-/* reset month data (delete evaluations only) */
+/* Reset month (delete evaluations only) */
 function resetMonthData(){
   if(!confirm("هل أنت متأكد أنك تريد حذف جميع تقييمات هذا الشهر والبدء من جديد؟")) return;
   evaluations = [];
@@ -247,28 +235,23 @@ function resetMonthData(){
   alert("تم حذف بيانات الشهر ✔️");
 }
 
-/* ===========================
-   Popup: add employees
-   =========================== */
+/* ===== Popups: employees & criteria management ===== */
 function openEmployeePopup(){ document.getElementById("employeePopup").style.display = "block"; }
 function closeEmployeePopup(){ document.getElementById("employeePopup").style.display = "none"; }
 
 function saveEmployeesBulk(){
   const txt = document.getElementById("bulkEmployees").value;
-  const names = txt.split(/\r?\n/).map(s => s.trim()).filter(s => s);
-  if(names.length === 0) { alert("لا توجد أسماء"); return; }
+  const names = txt.split(/\r?\n/).map(s=>s.trim()).filter(s=>s);
+  if(names.length === 0){ alert("لا توجد أسماء"); return; }
   employees.push(...names);
-  // remove duplicates while preserving order
-  employees = [...new Set(employees)];
+  employees = [...new Set(employees)]; // remove duplicates
   localStorage.setItem(KEY_EMPLOYEES, JSON.stringify(employees));
   loadEmployeeNames();
   closeEmployeePopup();
-  alert(names.length + " موظف تم إضافتهم ✔️");
+  alert(names.length + " موظف تمت إضافتهم ✔️");
 }
 
-/* ===========================
-   Popup: manage criteria
-   =========================== */
+/* Criteria popup */
 function openCriteriaPopup(){
   const div = document.getElementById("criteriaManage");
   div.innerHTML = "";
@@ -290,7 +273,6 @@ function addCriteria(){
   criteriaList.push(v);
   localStorage.setItem(KEY_CRITERIA, JSON.stringify(criteriaList));
   renderCriteria();
-  // refresh manage view
   openCriteriaPopup();
 }
 function deleteCriteria(i){
@@ -301,23 +283,15 @@ function deleteCriteria(i){
   openCriteriaPopup();
 }
 
-/* ===========================
-   Backup (export/import JSON)
-   =========================== */
+/* ===== Backup export/import ===== */
 function exportBackup(){
-  const data = {
-    employees,
-    criteriaList,
-    evaluations,
-    lastEvaluated
-  };
-  const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
+  const data = { employees, criteriaList, evaluations, lastEvaluated };
+  const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "qa_backup.json";
   a.click();
 }
-
 function importBackup(e){
   const file = e.target.files[0];
   if(!file) return;
@@ -325,8 +299,7 @@ function importBackup(e){
   reader.onload = function(){
     try{
       const data = JSON.parse(reader.result);
-      // validate minimal structure
-      if(!data || !Array.isArray(data.employees) || !Array.isArray(data.criteriaList) || !Array.isArray(data.evaluations)) {
+      if(!data || !Array.isArray(data.employees) || !Array.isArray(data.criteriaList) || !Array.isArray(data.evaluations)){
         alert("ملف النسخة غير صالح");
         return;
       }
@@ -341,34 +314,25 @@ function importBackup(e){
       loadEmployeeNames();
       renderCriteria();
       alert("تم استيراد النسخة ✔️");
-    }catch(err){
-      alert("حدث خطأ أثناء قراءة الملف");
+    } catch(err){
+      alert("خطأ أثناء قراءة الملف");
     }
   };
   reader.readAsText(file);
-  // clear input so same file can be loaded again if needed
   e.target.value = "";
 }
 
 /* ===========================
-   EXCEL Export (ExcelJS)
-   ===========================
-   Creates sheets:
-   - Overview (with 8 eval columns, avg, warnings, star)
-   - Top & Review (Top5 + NeedsReview 5)
-   - Performance Matrix (employees x criteria counts)
-   - تفاصيل البنود (counts + %)
-   - KPIs
-   Uses writeBuffer().then(...) for mobile compatibility.
+   Excel Export (ExcelJS) - final professional sheets
    =========================== */
 async function exportExcel(){
   if(typeof ExcelJS === "undefined"){
-    alert("مكتبة ExcelJS غير محملة. تأكد من اتصال الإنترنت.");
+    alert("مكتبة ExcelJS غير متوفرة (راجع اتصال الإنترنت).");
     return;
   }
 
-  // prepare grouping by employee
-  const grouped = {}; // { emp: {scores:[], warnings:0} }
+  // group evaluations
+  const grouped = {};
   evaluations.forEach(ev => {
     if(!grouped[ev.employee]) grouped[ev.employee] = {scores: [], warnings: 0};
     grouped[ev.employee].scores.push(ev.score);
@@ -379,7 +343,7 @@ async function exportExcel(){
   workbook.creator = "QA System";
   workbook.created = new Date();
 
-  // ---------- Overview ----------
+  /* ---- Overview ---- */
   const overview = workbook.addWorksheet("Overview");
   overview.views = [{state:'frozen', ySplit:1}];
   overview.columns = [
@@ -396,55 +360,48 @@ async function exportExcel(){
     {header:"المتوسط", key:"avg", width:14},
     {header:"الإنذارات", key:"warn", width:12}
   ];
-  // header style
+  // header styling
   overview.getRow(1).eachCell(cell => {
     cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'1E3A8A'}};
     cell.font = {color:{argb:'FFFFFF'}, bold:true};
-    cell.alignment = {horizontal:'center',vertical:'middle'};
+    cell.alignment = {horizontal:'center', vertical:'middle'};
   });
 
-  // add rows in employees order to preserve ordering
-  const summaryData = []; // collect for other sheets
+  const summaryData = [];
   employees.forEach(emp => {
     const info = grouped[emp] || {scores: [], warnings: 0};
     const scores = info.scores.slice(0,8);
     while(scores.length < 8) scores.push("");
     const avg = info.scores.length ? (info.scores.reduce((a,b)=>a+b,0)/info.scores.length) : 0;
-    const rowValues = [emp + (emp === lastEvaluated ? " ⭐" : ""), info.scores.length, ...scores, avg, info.warnings];
-    const row = overview.addRow(rowValues);
+    const row = overview.addRow([emp + (emp === lastEvaluated ? " ⭐" : ""), info.scores.length, ...scores, avg, info.warnings]);
 
-    // zebra shading
     if(row.number % 2 === 0){
-      row.eachCell(c => { c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'F8FAFC'}}; });
+      row.eachCell(c => c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'F8FAFC'}});
     }
 
-    // color avg cell based on thresholds
     const avgCell = row.getCell(11);
     if(avg < 65){
-      avgCell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'DC2626'}}; // red
+      avgCell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'DC2626'}};
       avgCell.font = {color:{argb:'FFFFFF'}, bold:true};
     } else if(avg < 85){
-      avgCell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FACC15'}}; // yellow
+      avgCell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FACC15'}};
       avgCell.font = {bold:true};
     } else {
-      avgCell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'16A34A'}}; // green
+      avgCell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'16A34A'}};
       avgCell.font = {color:{argb:'FFFFFF'}, bold:true};
     }
 
-    summaryData.push({emp,avg,warnings:info.warnings,count:info.scores.length});
+    summaryData.push({emp, avg, warnings: info.warnings, count: info.scores.length});
   });
 
-  // add borders to overview
   overview.eachRow(row => {
     row.eachCell(cell => {
-      cell.border = {
-        top: {style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}
-      };
+      cell.border = {top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}};
       cell.alignment = {vertical:'middle'};
     });
   });
 
-  // ---------- Top & Review ----------
+  /* ---- Top & Review ---- */
   const topSheet = workbook.addWorksheet("Top & Review");
   topSheet.views = [{state:'frozen', ySplit:1}];
   topSheet.columns = [
@@ -453,48 +410,44 @@ async function exportExcel(){
     {header:"عدد التقييمات", key:"count", width:16},
     {header:"عدد الإنذارات", key:"warn", width:14}
   ];
-  topSheet.getRow(1).eachCell(cell=>{
+  topSheet.getRow(1).eachCell(cell => {
     cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'1E3A8A'}};
     cell.font = {color:{argb:'FFFFFF'}, bold:true};
     cell.alignment = {horizontal:'center'};
   });
 
-  const sortedForTop = summaryData.filter(s => s.count>0).sort((a,b)=>{
+  const sortedForTop = summaryData.filter(s => s.count > 0).sort((a,b) => {
     if(b.avg !== a.avg) return b.avg - a.avg;
-    return a.warnings - b.warnings; // fewer warnings higher
+    return a.warnings - b.warnings;
   });
-
-  const top5 = sortedForTop.slice(0,5);
-  top5.forEach(r => {
+  sortedForTop.slice(0,5).forEach(r => {
     const row = topSheet.addRow([r.emp, Number(r.avg.toFixed(2)), r.count, r.warnings]);
-    row.eachCell(c => { c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'DCFCE7'}}; });
+    row.eachCell(c => c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'DCFCE7'}});
   });
 
   topSheet.addRow([]);
 
-  // Needs Review = lowest averages (tie-breaker: higher warnings first)
-  const sortedForReview = summaryData.filter(s => s.count>0).slice().sort((a,b)=>{
+  const sortedForReview = summaryData.filter(s => s.count > 0).slice().sort((a,b) => {
     if(a.avg !== b.avg) return a.avg - b.avg;
     return b.warnings - a.warnings;
   }).slice(0,5);
-
   sortedForReview.forEach(r => {
     const row = topSheet.addRow([r.emp, Number(r.avg.toFixed(2)), r.count, r.warnings]);
     if(r.avg < 65){
       row.getCell(2).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'DC2626'}};
       row.getCell(2).font = {color:{argb:'FFFFFF'}, bold:true};
     } else {
-      row.eachCell(c => { c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FEF9C3'}}; });
+      row.eachCell(c => c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FEF9C3'}});
     }
   });
 
   topSheet.eachRow(row => {
-    row.eachCell(cell=>{
-      cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+    row.eachCell(cell => {
+      cell.border = {top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}};
     });
   });
 
-  // ---------- Performance Matrix ----------
+  /* ---- Performance Matrix ---- */
   const matrixSheet = workbook.addWorksheet("Performance Matrix");
   matrixSheet.addRow(["الموظف", ...criteriaList]);
   matrixSheet.getRow(1).eachCell(c => {
@@ -512,9 +465,8 @@ async function exportExcel(){
       rowValues.push(count);
     });
     const r = matrixSheet.addRow(rowValues);
-    // color according to thresholds
     criteriaList.forEach((c, idx) => {
-      const cell = r.getCell(idx+2);
+      const cell = r.getCell(idx + 2);
       if(cell.value >= 6){
         cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'DC2626'}};
         cell.font = {color:{argb:'FFFFFF'}};
@@ -525,12 +477,12 @@ async function exportExcel(){
   });
 
   matrixSheet.eachRow(row => {
-    row.eachCell(cell=>{
-      cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+    row.eachCell(cell => {
+      cell.border = {top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}};
     });
   });
 
-  // ---------- تفاصيل البنود ----------
+  /* ---- تفاصيل البنود ---- */
   const detailSheet = workbook.addWorksheet("تفاصيل البنود");
   detailSheet.columns = [
     {header:"البند", key:"crit", width:50},
@@ -549,14 +501,13 @@ async function exportExcel(){
     const pct = totalEvals ? ((cnt / totalEvals) * 100).toFixed(2) : "0.00";
     criteriaStats.push({c, cnt, pct});
   });
-  // sort desc by count
   criteriaStats.sort((a,b) => b.cnt - a.cnt);
   criteriaStats.forEach(s => {
     const r = detailSheet.addRow([s.c, s.cnt, s.pct]);
-    r.eachCell(cell => { cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}}; });
+    r.eachCell(cell => { cell.border = {top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}}; });
   });
 
-  // ---------- KPIs ----------
+  /* ---- KPIs ---- */
   const kpiSheet = workbook.addWorksheet("KPIs");
   const allScores = evaluations.map(e => e.score).filter(n => typeof n === "number");
   const teamAvg = allScores.length ? (allScores.reduce((a,b)=>a+b,0)/allScores.length) : 0;
@@ -575,27 +526,44 @@ async function exportExcel(){
     c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'1E3A8A'}};
     c.font = {color:{argb:'FFFFFF'}, bold:true};
   });
-  kpiSheet.eachRow(r => r.eachCell(c => c.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}}));
+  kpiSheet.eachRow(r => r.eachCell(c => c.border = {top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}}));
 
-  // ---------- Finalize & Save (mobile-friendly) ----------
-  workbook.xlsx.writeBuffer().then(function(buffer){
+  /* ---- Save file (mobile-friendly) ---- */
+  workbook.xlsx.writeBuffer().then(buffer => {
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     saveAs(blob, "QA_Report_2.0.xlsx");
-  }).catch(err=>{
+  }).catch(err => {
     console.error(err);
-    alert("حدث خطأ أثناء إنشاء ملف الإكسل. جرب من جهاز آخر أو اعطني التفاصيل.");
+    alert("حدث خطأ أثناء إنشاء ملف الإكسل. جرّب من متصفح آخر أو أعطني تفاصيل الجهاز.");
   });
 }
 
-/* ====== initialize UI ====== */
+/* INIT UI */
 function init(){
-  // ensure criteriaList saved if not present
   if(!localStorage.getItem(KEY_CRITERIA)){
     localStorage.setItem(KEY_CRITERIA, JSON.stringify(criteriaList));
+  } else {
+    // ensure we use stored list if exists
+    try{
+      const stored = JSON.parse(localStorage.getItem(KEY_CRITERIA));
+      if(Array.isArray(stored)) criteriaList = stored;
+    }catch(e){}
   }
   if(!localStorage.getItem(KEY_EMPLOYEES)){
     localStorage.setItem(KEY_EMPLOYEES, JSON.stringify(employees));
+  } else {
+    try{
+      const stored = JSON.parse(localStorage.getItem(KEY_EMPLOYEES));
+      if(Array.isArray(stored)) employees = stored;
+    }catch(e){}
   }
+  // load evals if exist
+  try{
+    const evs = JSON.parse(localStorage.getItem(KEY_EVALS));
+    if(Array.isArray(evs)) evaluations = evs;
+  }catch(e){}
+  lastEvaluated = localStorage.getItem(KEY_LAST) || lastEvaluated;
+
   loadEmployeeNames();
   renderCriteria();
 }
