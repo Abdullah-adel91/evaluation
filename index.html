@@ -53,7 +53,7 @@
   </div>
 </div>
 
-<!-- بنود التقييم (بصيغة النسخة الأولى: عرض بسيط لكل بند مع زر ✔ و ✖) -->
+<!-- بنود التقييم (بصيغة النسخة الأولى: عرض بسيط لكل بند مع زر ✔ و ✖ بدون تلوين) -->
 <div class="item">
   <h3 style="margin:0 0 8px 0">تقييم المكالمات</h3>
   <div id="criteriaContainer"></div>
@@ -173,7 +173,6 @@ function renderCriteria(){
 }
 
 function setMark(btn, val){
-  // set the result text in the same simple format (no styling change)
   const parent = btn.closest(".criteria-simple");
   const span = parent.querySelector(".result");
   span.textContent = val;
@@ -243,10 +242,10 @@ function closeEmployeePopup(){ document.getElementById("employeePopup").style.di
 
 function saveEmployeesBulk(){
   const txt = document.getElementById("bulkEmployees").value;
-  const names = txt.split(/\r?\n/).map(s=>s.trim()).filter(s=>s);
+  const names = txt.split(/\r?\n/).map(s => s.trim()).filter(s => s);
   if(names.length === 0){ alert("لا توجد أسماء"); return; }
   employees.push(...names);
-  employees = [...new Set(employees)];
+  employees = [...new Set(employees)]; // remove duplicates
   localStorage.setItem(KEY_EMPLOYEES, JSON.stringify(employees));
   loadEmployeeNames();
   closeEmployeePopup();
@@ -294,6 +293,7 @@ function exportBackup(){
   a.download = "qa_backup.json";
   a.click();
 }
+
 function importBackup(e){
   const file = e.target.files[0];
   if(!file) return;
@@ -301,7 +301,7 @@ function importBackup(e){
   reader.onload = function(){
     try{
       const data = JSON.parse(reader.result);
-      if(!data || !Array.isArray(data.employees) || !Array.isArray(data.criteriaList) || !Array.isArray(data.evaluations)){
+      if(!data || !Array.isArray(data.employees) || !Array.isArray(data.criteriaList) || !Array.isArray(data.evaluations)) {
         alert("ملف النسخة غير صالح");
         return;
       }
@@ -333,6 +333,7 @@ async function exportExcel(){
     return;
   }
 
+  // group evaluations
   const grouped = {};
   evaluations.forEach(ev => {
     if(!grouped[ev.employee]) grouped[ev.employee] = {scores: [], warnings: 0};
@@ -361,6 +362,7 @@ async function exportExcel(){
     {header:"المتوسط", key:"avg", width:14},
     {header:"الإنذارات", key:"warn", width:12}
   ];
+  // header styling
   overview.getRow(1).eachCell(cell => {
     cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'1E3A8A'}};
     cell.font = {color:{argb:'FFFFFF'}, bold:true};
