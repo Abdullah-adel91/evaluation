@@ -18,11 +18,12 @@
   button.secondary{background:#6b7280}
   button.warn{background:#dc2626}
   label{font-weight:600;margin-left:8px}
-  .criteria-item{margin:8px 0;padding:8px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:space-between}
-  .criteria-left{flex:1;padding-right:8px}
-  .criteria-actions{display:flex;gap:8px;align-items:center}
-  .criteria-actions button{padding:6px 10px;font-size:16px;border-radius:6px}
-  .result{font-weight:700;margin-right:8px;font-size:18px;min-width:36px;display:inline-block;text-align:center}
+  /* العرض البسيط للبند مثل النسخة الأولى */
+  .criteria-simple{background:#fff;margin:8px 0;padding:10px;border-radius:8px}
+  .criteria-simple .text{display:inline-block;vertical-align:middle}
+  .criteria-simple .actions{display:inline-block;vertical-align:middle;margin-left:12px}
+  .criteria-simple .actions button{margin-left:6px}
+  .result{font-weight:700;margin-right:8px;font-size:18px;min-width:36px;display:inline-block}
   .popup{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9999;
     background:#fff;padding:16px;border-radius:10px;box-shadow:0 6px 24px rgba(2,6,23,0.15);width:90%;max-width:480px}
   textarea{width:100%;min-height:120px;padding:8px;font-size:15px;border-radius:6px;border:1px solid #e5e7eb}
@@ -31,7 +32,7 @@
   footer{margin-top:18px;text-align:center;color:#64748b;font-size:13px}
   @media (max-width:480px){
     .controls{flex-direction:column}
-    .criteria-item{font-size:15px}
+    .criteria-simple{font-size:15px}
     button{width:100%}
   }
 </style>
@@ -52,7 +53,7 @@
   </div>
 </div>
 
-<!-- بنود التقييم (الواجهة بصيغة النسخة الأولى: زر صح وزر خطأ لكل بند) -->
+<!-- بنود التقييم (بصيغة النسخة الأولى: عرض بسيط لكل بند مع زر ✔ و ✖) -->
 <div class="item">
   <h3 style="margin:0 0 8px 0">تقييم المكالمات</h3>
   <div id="criteriaContainer"></div>
@@ -132,7 +133,7 @@ let criteriaList = JSON.parse(localStorage.getItem(KEY_CRITERIA)) || DEFAULT_CRI
 let evaluations = JSON.parse(localStorage.getItem(KEY_EVALS)) || [];
 let lastEvaluated = localStorage.getItem(KEY_LAST) || "";
 
-/* ===== Render UI (criteria as in original: ✔️ / ✖️ buttons) ===== */
+/* ===== Render UI (simple criteria display like original) ===== */
 function loadEmployeeNames(){
   const sel = document.getElementById("employeeSelect");
   sel.innerHTML = "";
@@ -155,13 +156,16 @@ function renderCriteria(){
   container.innerHTML = "";
   criteriaList.forEach((c, idx) => {
     const div = document.createElement("div");
-    div.className = "criteria-item";
+    div.className = "criteria-simple";
+    // simple layout: text then buttons then result span (no coloring)
     div.innerHTML = `
-      <div class="criteria-left">${c}</div>
-      <div class="criteria-actions">
-        <button onclick="setMark(this,'✔️')">✔️</button>
-        <button onclick="setMark(this,'✖️')">✖️</button>
-        <span class="result" data-index="${idx}"></span>
+      <div>
+        <span class="text">${c}</span>
+        <span class="actions">
+          <button onclick="setMark(this,'✔️')">✔️</button>
+          <button onclick="setMark(this,'✖️')">✖️</button>
+          <span class="result" data-index="${idx}"></span>
+        </span>
       </div>
     `;
     container.appendChild(div);
@@ -169,7 +173,8 @@ function renderCriteria(){
 }
 
 function setMark(btn, val){
-  const parent = btn.closest(".criteria-item");
+  // set the result text in the same simple format (no styling change)
+  const parent = btn.closest(".criteria-simple");
   const span = parent.querySelector(".result");
   span.textContent = val;
 }
@@ -178,11 +183,10 @@ function resetView(){
   document.querySelectorAll(".result").forEach(r => r.textContent = "");
 }
 
-/* Show mistakes (filter) */
 function showMistakes(){
   const results = [...document.querySelectorAll(".result")];
   const mistakes = [];
-  results.forEach((r,i) => {
+  results.forEach((r, i) => {
     if(r.textContent === "✖️") mistakes.push("- " + (criteriaList[i] || ("بند #" + (i+1))));
   });
   if(mistakes.length === 0) alert("لا توجد أخطاء ✔️");
@@ -206,7 +210,6 @@ function saveEvaluation(){
   const score = Number(scoreStr);
   if(isNaN(score) || score < 0) return alert("درجة غير صحيحة");
 
-  // push
   evaluations.push({
     employee,
     score,
@@ -214,7 +217,6 @@ function saveEvaluation(){
     date: new Date().toISOString()
   });
 
-  // persist
   localStorage.setItem(KEY_EVALS, JSON.stringify(evaluations));
   localStorage.setItem(KEY_LAST, employee);
   lastEvaluated = employee;
@@ -244,7 +246,7 @@ function saveEmployeesBulk(){
   const names = txt.split(/\r?\n/).map(s=>s.trim()).filter(s=>s);
   if(names.length === 0){ alert("لا توجد أسماء"); return; }
   employees.push(...names);
-  employees = [...new Set(employees)]; // remove duplicates
+  employees = [...new Set(employees)];
   localStorage.setItem(KEY_EMPLOYEES, JSON.stringify(employees));
   loadEmployeeNames();
   closeEmployeePopup();
@@ -323,7 +325,7 @@ function importBackup(e){
 }
 
 /* ===========================
-   Excel Export (ExcelJS) - final professional sheets
+   EXCEL Export (ExcelJS) - professional sheets
    =========================== */
 async function exportExcel(){
   if(typeof ExcelJS === "undefined"){
@@ -331,7 +333,6 @@ async function exportExcel(){
     return;
   }
 
-  // group evaluations
   const grouped = {};
   evaluations.forEach(ev => {
     if(!grouped[ev.employee]) grouped[ev.employee] = {scores: [], warnings: 0};
@@ -360,7 +361,6 @@ async function exportExcel(){
     {header:"المتوسط", key:"avg", width:14},
     {header:"الإنذارات", key:"warn", width:12}
   ];
-  // header styling
   overview.getRow(1).eachCell(cell => {
     cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'1E3A8A'}};
     cell.font = {color:{argb:'FFFFFF'}, bold:true};
@@ -543,7 +543,6 @@ function init(){
   if(!localStorage.getItem(KEY_CRITERIA)){
     localStorage.setItem(KEY_CRITERIA, JSON.stringify(criteriaList));
   } else {
-    // ensure we use stored list if exists
     try{
       const stored = JSON.parse(localStorage.getItem(KEY_CRITERIA));
       if(Array.isArray(stored)) criteriaList = stored;
@@ -557,7 +556,6 @@ function init(){
       if(Array.isArray(stored)) employees = stored;
     }catch(e){}
   }
-  // load evals if exist
   try{
     const evs = JSON.parse(localStorage.getItem(KEY_EVALS));
     if(Array.isArray(evs)) evaluations = evs;
