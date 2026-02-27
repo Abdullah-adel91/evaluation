@@ -16,16 +16,10 @@ button{margin:3px;padding:6px 12px;font-size:16px;cursor:pointer}
 select,textarea{padding:8px;font-size:16px;margin-top:5px}
 textarea{width:100%;}
 .popup{
-display:none;
-position:fixed;
-top:50%;
-left:50%;
+display:none;position:fixed;top:50%;left:50%;
 transform:translate(-50%,-50%);
-background:#fff;
-padding:20px;
-border-radius:10px;
-box-shadow:0 0 20px rgba(0,0,0,0.3);
-z-index:9999;
+background:#fff;padding:20px;border-radius:10px;
+box-shadow:0 0 20px rgba(0,0,0,0.3);z-index:9999;
 }
 </style>
 </head>
@@ -33,7 +27,6 @@ z-index:9999;
 
 <h2 style="text-align:center">تقييم المكالمات</h2>
 
-<!-- إدارة الموظفين -->
 <div class="item">
 <label>اسم الموظف:</label>
 <select id="employeeSelect"></select>
@@ -54,6 +47,9 @@ z-index:9999;
 
 <h3>نهاية الشهر</h3>
 <button onclick="exportExcel()">📊 تحميل Excel احترافي</button>
+<button onclick="resetMonthData()" style="background:#dc2626;color:white;">
+🗑 حذف كل بيانات الشهر
+</button>
 <button onclick="exportBackup()">📤 تصدير نسخة</button>
 <input type="file" onchange="importBackup(event)">
 
@@ -76,7 +72,7 @@ z-index:9999;
 
 <script>
 
-// ================= DATA =================
+// ===== DATA =====
 let employees = JSON.parse(localStorage.getItem("employees")) || [];
 let criteriaList = JSON.parse(localStorage.getItem("criteria")) || [
 "ترحيب بداية المكالمة وذكر الاسم",
@@ -95,7 +91,7 @@ let criteriaList = JSON.parse(localStorage.getItem("criteria")) || [
 let evaluations = JSON.parse(localStorage.getItem("evaluations")) || [];
 let lastEvaluated = localStorage.getItem("lastEvaluated") || "";
 
-// ================= RENDER =================
+// ===== RENDER =====
 function loadEmployeeNames(){
 const sel=document.getElementById("employeeSelect");
 sel.innerHTML="";
@@ -128,7 +124,7 @@ function resetView(){
 document.querySelectorAll('.result').forEach(r=>r.innerText='');
 }
 
-// ================= SAVE =================
+// ===== SAVE =====
 function showMistakes(){
 const results=[...document.querySelectorAll('.result')];
 let mistakes=[];
@@ -154,11 +150,7 @@ results.forEach((r,i)=>{
 if(r.innerText==='✖️') mistakes.push(criteriaList[i]);
 });
 
-evaluations.push({
-employee,
-score,
-errors:mistakes
-});
+evaluations.push({employee,score,errors:mistakes});
 
 localStorage.setItem("evaluations",JSON.stringify(evaluations));
 localStorage.setItem("lastEvaluated",employee);
@@ -168,7 +160,19 @@ alert("تم الحفظ ✔️");
 resetView();
 }
 
-// ================= POPUPS =================
+// ===== حذف بيانات الشهر =====
+function resetMonthData(){
+if(confirm("هل أنت متأكد من حذف جميع تقييمات هذا الشهر؟")){
+localStorage.removeItem("evaluations");
+localStorage.removeItem("lastEvaluated");
+evaluations=[];
+lastEvaluated="";
+loadEmployeeNames();
+alert("تم حذف بيانات الشهر ✔️");
+}
+}
+
+// ===== POPUPS =====
 function openEmployeePopup(){document.getElementById("employeePopup").style.display="block";}
 function closeEmployeePopup(){document.getElementById("employeePopup").style.display="none";}
 function saveEmployeesBulk(){
@@ -206,7 +210,7 @@ renderCriteria();
 openCriteriaPopup();
 }
 
-// ================= BACKUP =================
+// ===== BACKUP =====
 function exportBackup(){
 let data={employees,criteriaList,evaluations};
 let blob=new Blob([JSON.stringify(data)],{type:"application/json"});
@@ -234,13 +238,12 @@ alert("تم الاستيراد ✔️");
 reader.readAsText(file);
 }
 
-// ================= EXCEL =================
+// ===== EXCEL =====
 async function exportExcel(){
 
 const workbook = new ExcelJS.Workbook();
-
-// تجميع
 let grouped={};
+
 evaluations.forEach(ev=>{
 if(!grouped[ev.employee]){
 grouped[ev.employee]={scores:[],warnings:0};
@@ -249,28 +252,19 @@ grouped[ev.employee].scores.push(ev.score);
 if(ev.score===0) grouped[ev.employee].warnings++;
 });
 
-// ================= Overview =================
-const sheet = workbook.addWorksheet("Overview");
-sheet.views=[{state:'frozen',ySplit:1}];
-
-sheet.columns=[
+// ===== Overview =====
+const overview=workbook.addWorksheet("Overview");
+overview.views=[{state:'frozen',ySplit:1}];
+overview.columns=[
 {header:"الموظف",width:22},
 {header:"عدد التقييمات",width:16},
-{header:"تقييم1",width:10},
-{header:"تقييم2",width:10},
-{header:"تقييم3",width:10},
-{header:"تقييم4",width:10},
-{header:"تقييم5",width:10},
-{header:"تقييم6",width:10},
-{header:"تقييم7",width:10},
-{header:"تقييم8",width:10},
 {header:"المتوسط",width:14},
 {header:"الإنذارات",width:14}
 ];
 
-sheet.getRow(1).eachCell(cell=>{
-cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'1E3A8A'}};
-cell.font={color:{argb:'FFFFFF'},bold:true};
+overview.getRow(1).eachCell(c=>{
+c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'1E3A8A'}};
+c.font={color:{argb:'FFFFFF'},bold:true};
 });
 
 let summaryData=[];
@@ -280,25 +274,19 @@ let scores=grouped[emp]?.scores||[];
 let warnings=grouped[emp]?.warnings||0;
 let avg=scores.length?scores.reduce((a,b)=>a+b,0)/scores.length:0;
 
-let row=sheet.addRow([
+let row=overview.addRow([
 emp + (emp===lastEvaluated?" ⭐":""),
 scores.length,
-...scores.slice(0,8),
 avg,
 warnings
 ]);
 
-if(row.number%2===0){
-row.eachCell(c=>c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'F3F4F6'}});
-}
-
-let avgCell=row.getCell(11);
+let avgCell=row.getCell(3);
 if(avg<65){
 avgCell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'DC2626'}};
 avgCell.font={color:{argb:'FFFFFF'},bold:true};
 }else if(avg<85){
 avgCell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FACC15'}};
-avgCell.font={bold:true};
 }else{
 avgCell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'16A34A'}};
 avgCell.font={color:{argb:'FFFFFF'},bold:true};
@@ -307,52 +295,62 @@ avgCell.font={color:{argb:'FFFFFF'},bold:true};
 summaryData.push({emp,avg,warnings,count:scores.length});
 });
 
-// ================= Performance Matrix =================
-const matrix=workbook.addWorksheet("Performance Matrix");
-matrix.addRow(["الموظف",...criteriaList]);
-matrix.getRow(1).eachCell(cell=>{
-cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'1E3A8A'}};
-cell.font={color:{argb:'FFFFFF'},bold:true};
+// ===== Top & Review =====
+const topSheet=workbook.addWorksheet("Top & Review");
+topSheet.columns=[
+{header:"الموظف",width:22},
+{header:"المتوسط",width:14},
+{header:"عدد التقييمات",width:16},
+{header:"الإنذارات",width:14}
+];
+
+topSheet.getRow(1).eachCell(c=>{
+c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'1E3A8A'}};
+c.font={color:{argb:'FFFFFF'},bold:true};
 });
 
-employees.forEach(emp=>{
-let row=[emp];
+let sorted=[...summaryData].filter(e=>e.count>0)
+.sort((a,b)=>b.avg-a.avg||a.warnings-b.warnings);
+
+sorted.slice(0,5).forEach(e=>{
+let r=topSheet.addRow([e.emp,e.avg,e.count,e.warnings]);
+r.eachCell(c=>c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'DCFCE7'}});
+});
+
+topSheet.addRow([]);
+
+sorted.sort((a,b)=>a.avg-b.avg||b.warnings-a.warnings)
+.slice(0,5).forEach(e=>{
+let r=topSheet.addRow([e.emp,e.avg,e.count,e.warnings]);
+r.eachCell(c=>c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FEF9C3'}});
+});
+
+// ===== تفاصيل البنود =====
+const detail=workbook.addWorksheet("تفاصيل البنود");
+detail.columns=[
+{header:"البند",width:40},
+{header:"عدد مرات الإخفاق",width:20},
+{header:"نسبة الإخفاق %",width:20}
+];
+
+detail.getRow(1).eachCell(c=>{
+c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'1E3A8A'}};
+c.font={color:{argb:'FFFFFF'},bold:true};
+});
+
 criteriaList.forEach(c=>{
 let count=0;
 evaluations.forEach(ev=>{
-if(ev.employee===emp && ev.errors.includes(c)) count++;
+if(ev.errors.includes(c)) count++;
 });
-row.push(count);
-});
-let r=matrix.addRow(row);
-criteriaList.forEach((c,i)=>{
-let cell=r.getCell(i+2);
-if(cell.value>=6){
-cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'DC2626'}};
-cell.font={color:{argb:'FFFFFF'}};
-}else if(cell.value>=4){
-cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FACC15'}};
-}
-});
+let percentage=evaluations.length?((count/evaluations.length)*100).toFixed(2):0;
+detail.addRow([c,count,percentage]);
 });
 
-// ================= KPIs =================
-const kpi=workbook.addWorksheet("KPIs");
-let allScores=evaluations.map(e=>e.score);
-let teamAvg=allScores.length?allScores.reduce((a,b)=>a+b,0)/allScores.length:0;
-let warningsTotal=evaluations.filter(e=>e.score===0).length;
-
-kpi.addRows([
-["عدد التقييمات",evaluations.length],
-["متوسط الفريق",teamAvg.toFixed(2)],
-["عدد الإنذارات",warningsTotal]
-]);
-
-const buffer = await workbook.xlsx.writeBuffer();
-saveAs(new Blob([buffer]), "QA_Report_2.0.xlsx");
+const buffer=await workbook.xlsx.writeBuffer();
+saveAs(new Blob([buffer]),"QA_Report_2.0.xlsx");
 }
 
-// ================= INIT =================
 loadEmployeeNames();
 renderCriteria();
 
