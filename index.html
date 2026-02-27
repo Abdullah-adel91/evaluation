@@ -14,24 +14,53 @@
   h2{text-align:center;color:#1e293b;margin-bottom:10px}
   .item{background:#fff;margin:8px 0;padding:12px;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,0.04)}
   .controls{display:flex;gap:8px;flex-wrap:wrap}
+  /* زرورن عام (لا يؤثر على أزرار البنود المحددة) */
   button{padding:8px 12px;border-radius:8px;border:0;background:#1e3a8a;color:#fff;cursor:pointer;font-size:15px}
   button.secondary{background:#6b7280}
   button.warn{background:#dc2626}
   label{font-weight:600;margin-left:8px}
-  /* هذه قواعد للمظهر العام — عرض البنود سيطابق النسخة القديمة بالضبط */
+
+  /* قواعد خاصة لعرض البنود - نفس النسخة القديمة بالضبط مع أزرار صغيرة وبيضاء */
   .criteria-old{background:#fff;margin:6px 0;padding:10px 8px;border-radius:8px}
   .criteria-old .actions{margin-top:6px}
-  .result{font-size:18px;font-weight:700;margin-right:8px;display:inline-block;min-width:36px}
+  /* نجعل أزرار البنود صغيرة وبيضاء مع إطار خفيف */
+  .criteria-old .actions button{
+    background:#ffffff !important;
+    color:#1e3a8a !important;
+    border:1px solid #cbd5e1;
+    padding:4px 8px;
+    font-size:13px;
+    border-radius:6px;
+    cursor:pointer;
+    margin-left:6px;
+  }
+  /* ازالة تأثير الظلال عند الضغط على زر البند ليبقى بسيط */
+  .criteria-old .actions button:active{transform:translateY(1px)}
+  .criteria-old .result{
+    font-size:16px;
+    font-weight:700;
+    margin-right:8px;
+    display:inline-block;
+    min-width:28px;
+    text-align:center;
+    color:#0f172a;
+  }
+
+  /* نضمن ان أزرار بنود تكون بجانب بعض تحت النص */
+  .criteria-old .actions{display:inline-block; vertical-align:middle}
+
   .popup{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9999;
     background:#fff;padding:16px;border-radius:10px;box-shadow:0 6px 24px rgba(2,6,23,0.15);width:90%;max-width:480px}
   textarea{width:100%;min-height:120px;padding:8px;font-size:15px;border-radius:6px;border:1px solid #e5e7eb}
   input[type=file]{display:inline-block}
   .small{padding:6px 10px;font-size:14px}
   footer{margin-top:18px;text-align:center;color:#64748b;font-size:13px}
+
   @media (max-width:480px){
     .controls{flex-direction:column}
     .criteria-old{font-size:15px}
     button{width:100%}
+    .criteria-old .actions button{padding:6px 10px;margin-left:4px;font-size:13px}
   }
 </style>
 </head>
@@ -51,7 +80,7 @@
   </div>
 </div>
 
-<!-- بنود التقييم (واجهه قديمة بالضبط: كل بند يظهر كسطر مع أزرار ✔️ و ✖️ ثم span للنتيجة) -->
+<!-- بنود التقييم (بصيغة النسخة القديمة: كل بند سطر، ثم أزرار صغيرة تحتها جنب بعض، span للنتيجة) -->
 <div class="item">
   <h3 style="margin:0 0 8px 0">تقييم المكالمات</h3>
   <div id="criteriaContainer"></div>
@@ -98,20 +127,20 @@
   </div>
 </div>
 
-<footer>صُنع لك — إذا احتجت تعديل بسيط علشان يطابق بالضبط شكل النسخة القديمة قل لي.</footer>
+<footer>صُنع لك — أي تعديل آخر على المسافات أو حجم الأزرار أطبقه فوراً لو طلبت.</footer>
 
 <script>
-/* ======= مفاتيح localStorage ثابتة ======= */
+/* ======= مفاتيح التخزين ======= */
 const KEY_EMPLOYEES = "employees";
 const KEY_CRITERIA = "criteriaList";
 const KEY_EVALS = "evaluations";
 const KEY_LAST = "lastEvaluated";
 
-/* القائمة الافتراضية للبنود (كما طلبت سابقاً) */
+/* البنود الافتراضية */
 const DEFAULT_CRITERIA = [
   "ترحيب بداية المكالمة وذكر الاسم",
   "طلب إسم المشترك وذكره مرة واحدة",
-  "أخذ رقم الحساب أو استخدام وسائل مساعده",
+  "أخذ رقم الحساب أو استخدام وسائل مساعدة",
   "مطابقة بيانات الحساب",
   "أخذ إذن المشترك قبل وضعه على الانتظار",
   "إدارة وقت المكالمة",
@@ -123,13 +152,13 @@ const DEFAULT_CRITERIA = [
   "إنهاء صحيح للمكالمة"
 ];
 
-/* ====== جلب البيانات أو تعيين الافتراضي ====== */
+/* تحميل البيانات أو التهيئة */
 let employees = JSON.parse(localStorage.getItem(KEY_EMPLOYEES)) || [];
 let criteriaList = JSON.parse(localStorage.getItem(KEY_CRITERIA)) || DEFAULT_CRITERIA.slice();
 let evaluations = JSON.parse(localStorage.getItem(KEY_EVALS)) || [];
 let lastEvaluated = localStorage.getItem(KEY_LAST) || "";
 
-/* ====== واجهة عرض البنود — **نسخة قديمة بالضبط** ====== */
+/* عرض أسماء الموظفين في القائمة */
 function loadEmployeeNames(){
   const sel = document.getElementById("employeeSelect");
   sel.innerHTML = "";
@@ -147,37 +176,38 @@ function loadEmployeeNames(){
   }
 }
 
-/* هنا ننسخ بالضبط هيكل النسخة الأولى للعرض */
+/* عرض البنود بشكل مطابق للنسخة القديمة: سطر البند ثم أزرار صغيرة تحتها جنب بعض */
 function renderCriteria(){
-  const div = document.getElementById("criteriaContainer");
-  div.innerHTML = "";
-  criteriaList.forEach((c, i) => {
+  const container = document.getElementById("criteriaContainer");
+  container.innerHTML = "";
+  criteriaList.forEach((c, idx) => {
     const item = document.createElement("div");
     item.className = "criteria-old";
-    // هيكل مطابق للنسخة القديمة: نص البند، سطر جديد ثم أزرار ثم span للنتيجة
     item.innerHTML = `
       ${c}<br>
       <div class="actions">
-        <button onclick="setMark(this,'✔️')">✔️</button>
-        <button onclick="setMark(this,'✖️')">✖️</button>
-        <span class="result" data-index="${i}"></span>
+        <button onclick="setMark(this,'✔️')" aria-label="صح">✔️</button>
+        <button onclick="setMark(this,'✖️')" aria-label="خطأ">✖️</button>
+        <span class="result" data-index="${idx}"></span>
       </div>
     `;
-    div.appendChild(item);
+    container.appendChild(item);
   });
 }
 
+/* وضع العلامة (النص) فقط داخل الـ span — بدون أي تغيير بصري آخر */
 function setMark(btn, val){
-  // نفس سلوك النسخة القديمة: نضع النص داخل span فقط، بدون أي تلوين
   const parent = btn.closest(".criteria-old");
   const span = parent.querySelector(".result");
   if(span) span.innerText = val;
 }
 
+/* إعادة تعيين */
 function resetView(){
   document.querySelectorAll(".result").forEach(r => r.innerText = "");
 }
 
+/* إظهار الأخطاء (تصفية) */
 function showMistakes(){
   const results = [...document.querySelectorAll(".result")];
   const mistakes = [];
@@ -188,7 +218,7 @@ function showMistakes(){
   else alert("الأخطاء المسجّلة:\n\n" + mistakes.join("\n"));
 }
 
-/* ====== حفظ التقييم ====== */
+/* حفظ التقييم مع إدخال درجة الفيرنت */
 function saveEvaluation(){
   const sel = document.getElementById("employeeSelect");
   const employee = sel.value;
@@ -221,7 +251,7 @@ function saveEvaluation(){
   resetView();
 }
 
-/* ====== حذف بيانات الشهر ====== */
+/* حذف بيانات الشهر */
 function resetMonthData(){
   if(!confirm("هل أنت متأكد أنك تريد حذف جميع تقييمات هذا الشهر والبدء من جديد؟")) return;
   evaluations = [];
@@ -232,7 +262,7 @@ function resetMonthData(){
   alert("تم حذف بيانات الشهر ✔️");
 }
 
-/* ====== Popups: إضافة موظفين و إدارة البنود ====== */
+/* ===== Popups: إضافة موظفين و إدارة البنود ===== */
 function openEmployeePopup(){ document.getElementById("employeePopup").style.display = "block"; }
 function closeEmployeePopup(){ document.getElementById("employeePopup").style.display = "none"; }
 
@@ -248,12 +278,16 @@ function saveEmployeesBulk(){
   alert(names.length + " موظف تم إضافتهم ✔️");
 }
 
+/* إدارة البنود */
 function openCriteriaPopup(){
   const div = document.getElementById("criteriaManage");
   div.innerHTML = "";
-  criteriaList.forEach((c,i) => {
+  criteriaList.forEach((c, i) => {
     const row = document.createElement("div");
-    row.style.display = "flex"; row.style.justifyContent = "space-between"; row.style.padding = "6px 0";
+    row.style.display = "flex";
+    row.style.justifyContent = "space-between";
+    row.style.alignItems = "center";
+    row.style.padding = "6px 0";
     row.innerHTML = `<div style="flex:1">${c}</div><div><button onclick="deleteCriteria(${i})" class="secondary small">❌ حذف</button></div>`;
     div.appendChild(row);
   });
@@ -276,7 +310,7 @@ function deleteCriteria(i){
   openCriteriaPopup();
 }
 
-/* ====== نسخ احتياطي استيراد/تصدير JSON ====== */
+/* ===== استيراد / تصدير نسخة JSON ===== */
 function exportBackup(){
   const data = { employees, criteriaList, evaluations, lastEvaluated };
   const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
@@ -292,7 +326,7 @@ function importBackup(e){
   reader.onload = function(){
     try{
       const data = JSON.parse(reader.result);
-      if(!data || !Array.isArray(data.employees) || !Array.isArray(data.criteriaList) || !Array.isArray(data.evaluations)) {
+      if(!data || !Array.isArray(data.employees) || !Array.isArray(data.criteriaList) || !Array.isArray(data.evaluations)){
         alert("ملف النسخة غير صالح");
         return;
       }
@@ -315,13 +349,14 @@ function importBackup(e){
   e.target.value = "";
 }
 
-/* ====== تصدير Excel احترافي (ExcelJS) ====== */
+/* ===== Excel Export (ExcelJS) ===== */
 async function exportExcel(){
   if(typeof ExcelJS === "undefined"){
     alert("مكتبة ExcelJS غير متوفرة (راجع اتصال الإنترنت).");
     return;
   }
 
+  // group evaluations
   const grouped = {};
   evaluations.forEach(ev => {
     if(!grouped[ev.employee]) grouped[ev.employee] = {scores: [], warnings: 0};
@@ -333,7 +368,7 @@ async function exportExcel(){
   workbook.creator = "QA System";
   workbook.created = new Date();
 
-  // Overview sheet
+  /* ---- Overview ---- */
   const overview = workbook.addWorksheet("Overview");
   overview.views = [{state:'frozen', ySplit:1}];
   overview.columns = [
@@ -390,7 +425,7 @@ async function exportExcel(){
     });
   });
 
-  // Top & Review
+  /* ---- Top & Review ---- */
   const topSheet = workbook.addWorksheet("Top & Review");
   topSheet.views = [{state:'frozen', ySplit:1}];
   topSheet.columns = [
@@ -436,7 +471,7 @@ async function exportExcel(){
     });
   });
 
-  // Performance Matrix
+  /* ---- Performance Matrix ---- */
   const matrixSheet = workbook.addWorksheet("Performance Matrix");
   matrixSheet.addRow(["الموظف", ...criteriaList]);
   matrixSheet.getRow(1).eachCell(c => {
@@ -471,7 +506,7 @@ async function exportExcel(){
     });
   });
 
-  // تفاصيل البنود
+  /* ---- تفاصيل البنود ---- */
   const detailSheet = workbook.addWorksheet("تفاصيل البنود");
   detailSheet.columns = [
     {header:"البند", key:"crit", width:50},
@@ -496,7 +531,7 @@ async function exportExcel(){
     r.eachCell(cell => { cell.border = {top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}}; });
   });
 
-  // KPIs
+  /* ---- KPIs ---- */
   const kpiSheet = workbook.addWorksheet("KPIs");
   const allScores = evaluations.map(e => e.score).filter(n => typeof n === "number");
   const teamAvg = allScores.length ? (allScores.reduce((a,b)=>a+b,0)/allScores.length) : 0;
@@ -517,7 +552,7 @@ async function exportExcel(){
   });
   kpiSheet.eachRow(r => r.eachCell(c => c.border = {top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}}));
 
-  // حفظ الإكسل (buffer -> blob) متوافق مع الموبايل
+  /* ---- Save file ---- */
   workbook.xlsx.writeBuffer().then(buffer => {
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     saveAs(blob, "QA_Report_2.0.xlsx");
@@ -527,7 +562,7 @@ async function exportExcel(){
   });
 }
 
-/* ====== INIT ====== */
+/* INIT */
 function init(){
   if(!localStorage.getItem(KEY_CRITERIA)){
     localStorage.setItem(KEY_CRITERIA, JSON.stringify(criteriaList));
