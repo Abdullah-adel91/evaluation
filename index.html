@@ -3,65 +3,98 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>نظام تقييم الجودة QA 2.0</title>
+<title>نظام تقييم الجودة QA 2.0 — Grid View</title>
 
 <!-- ExcelJS + FileSaver -->
 <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver/dist/FileSaver.min.js"></script>
 
 <style>
-  body{direction:rtl;font-family:Arial,Helvetica,sans-serif;background:#f5f7fb;padding:12px}
-  h2{text-align:center;color:#1e293b;margin-bottom:10px}
-  .item{background:#fff;margin:8px 0;padding:12px;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,0.04)}
+  :root{
+    --primary:#1e3a8a;
+    --muted:#6b7280;
+    --light:#f5f7fb;
+    --card:#ffffff;
+    --border:#cbd5e1;
+    --text:#0f172a;
+  }
+  body{direction:rtl;font-family:Arial,Helvetica,sans-serif;background:var(--light);padding:14px;color:var(--text)}
+  h2{text-align:center;color:var(--primary);margin-bottom:12px;font-size:20px}
+  .item{background:var(--card);margin:10px 0;padding:14px;border-radius:10px;box-shadow:0 1px 2px rgba(2,6,23,0.04)}
   .controls{display:flex;gap:8px;flex-wrap:wrap}
-  /* زرورن عام (لا يؤثر على أزرار البنود المحددة) */
-  button{padding:8px 12px;border-radius:8px;border:0;background:#1e3a8a;color:#fff;cursor:pointer;font-size:15px}
-  button.secondary{background:#6b7280}
-  button.warn{background:#dc2626}
-  label{font-weight:600;margin-left:8px}
+  .btn{padding:8px 12px;border-radius:8px;border:0;background:var(--primary);color:#fff;cursor:pointer;font-size:15px}
+  .btn.secondary{background:var(--muted)}
+  .btn.warn{background:#dc2626}
+  label{font-weight:700;margin-left:8px}
+  footer{margin-top:18px;text-align:center;color:#64748b;font-size:13px}
 
-  /* قواعد خاصة لعرض البنود - نفس النسخة القديمة بالضبط مع أزرار صغيرة وبيضاء */
-  .criteria-old{background:#fff;margin:6px 0;padding:10px 8px;border-radius:8px}
-  .criteria-old .actions{margin-top:6px}
-  /* نجعل أزرار البنود صغيرة وبيضاء مع إطار خفيف */
-  .criteria-old .actions button{
-    background:#ffffff !important;
-    color:#1e3a8a !important;
-    border:1px solid #cbd5e1;
-    padding:4px 8px;
-    font-size:13px;
-    border-radius:6px;
+  /* ===== Grid layout for criteria (Option C) ===== */
+  .criteria-row{
+    display:grid;
+    grid-template-columns: 1fr 180px; /* text column + actions column */
+    gap:12px;
+    align-items:center;
+    padding:12px;
+    border-radius:8px;
+    background:var(--card);
+    margin:8px 0;
+    border:1px solid rgba(2,6,23,0.03);
+    font-size:18px; /* larger text */
+  }
+  .criteria-text{
+    font-size:18px;
+    line-height:1.3;
+    color:var(--text);
+  }
+  .criteria-actions{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    justify-content:flex-start; /* buttons appear from left in RTL (visually near text) */
+  }
+
+  /* small white buttons with light border for checks */
+  .criteria-actions button{
+    background:#fff;
+    color:var(--primary);
+    border:1px solid var(--border);
+    padding:8px 10px;
+    font-size:15px;
+    border-radius:8px;
     cursor:pointer;
-    margin-left:6px;
+    min-width:44px;
+    min-height:36px;
+    box-shadow:none;
   }
-  /* ازالة تأثير الظلال عند الضغط على زر البند ليبقى بسيط */
-  .criteria-old .actions button:active{transform:translateY(1px)}
-  .criteria-old .result{
-    font-size:16px;
-    font-weight:700;
-    margin-right:8px;
-    display:inline-block;
-    min-width:28px;
+  .criteria-actions button:focus{outline:2px solid rgba(30,58,138,0.12)}
+  .criteria-actions button[aria-pressed="true"]{
+    box-shadow:inset 0 0 0 2px rgba(30,58,138,0.08);
+  }
+  .criteria-actions .result{
+    min-width:34px;
     text-align:center;
-    color:#0f172a;
+    font-weight:700;
+    font-size:16px;
+    color:var(--text);
+    margin-right:6px;
   }
 
-  /* نضمن ان أزرار بنود تكون بجانب بعض تحت النص */
-  .criteria-old .actions{display:inline-block; vertical-align:middle}
+  /* responsive adjustments */
+  @media (max-width:640px){
+    .criteria-row{grid-template-columns: 1fr 140px; font-size:17px}
+    .criteria-actions button{padding:8px 10px;font-size:16px;min-width:48px}
+  }
+  @media (max-width:420px){
+    .criteria-row{grid-template-columns: 1fr 140px;font-size:16px}
+    .criteria-actions{justify-content:flex-end}
+  }
 
+  /* Popups */
   .popup{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9999;
-    background:#fff;padding:16px;border-radius:10px;box-shadow:0 6px 24px rgba(2,6,23,0.15);width:90%;max-width:480px}
+    background:#fff;padding:16px;border-radius:10px;box-shadow:0 8px 36px rgba(2,6,23,0.18);width:92%;max-width:520px}
   textarea{width:100%;min-height:120px;padding:8px;font-size:15px;border-radius:6px;border:1px solid #e5e7eb}
   input[type=file]{display:inline-block}
   .small{padding:6px 10px;font-size:14px}
-  footer{margin-top:18px;text-align:center;color:#64748b;font-size:13px}
-
-  @media (max-width:480px){
-    .controls{flex-direction:column}
-    .criteria-old{font-size:15px}
-    button{width:100%}
-    .criteria-old .actions button{padding:6px 10px;margin-left:4px;font-size:13px}
-  }
 </style>
 </head>
 <body>
@@ -70,25 +103,26 @@
 
 <!-- إدارة الموظفين -->
 <div class="item">
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <label for="employeeSelect">اسم الموظف:</label>
-    <select id="employeeSelect" style="padding:8px;font-size:15px;min-width:200px"></select>
+    <select id="employeeSelect" style="padding:8px;font-size:15px;min-width:220px"></select>
+
     <div class="controls" style="margin-left:auto">
-      <button class="secondary small" onclick="openEmployeePopup()">➕ إضافة موظفين</button>
-      <button class="secondary small" onclick="openCriteriaPopup()">⚙ إدارة البنود</button>
+      <button class="btn secondary small" onclick="openEmployeePopup()">➕ إضافة موظفين</button>
+      <button class="btn secondary small" onclick="openCriteriaPopup()">⚙ إدارة البنود</button>
     </div>
   </div>
 </div>
 
-<!-- بنود التقييم (بصيغة النسخة القديمة: كل بند سطر، ثم أزرار صغيرة تحتها جنب بعض، span للنتيجة) -->
+<!-- بنود التقييم (Grid — نص كبير + أزرار جنب كل بند) -->
 <div class="item">
-  <h3 style="margin:0 0 8px 0">تقييم المكالمات</h3>
+  <h3 style="margin:0 0 10px 0">تقييم المكالمات</h3>
   <div id="criteriaContainer"></div>
 
-  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-    <button onclick="showMistakes()" class="secondary small">عرض الأخطاء (تصفية)</button>
-    <button onclick="saveEvaluation()" class="small">حفظ التقييم</button>
-    <button onclick="resetView()" class="secondary small">إعادة التقييم</button>
+  <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn secondary small" onclick="showMistakes()">عرض الأخطاء (تصفية)</button>
+    <button class="btn small" onclick="saveEvaluation()">حفظ التقييم</button>
+    <button class="btn secondary small" onclick="resetView()">إعادة التقييم</button>
   </div>
 </div>
 
@@ -96,9 +130,9 @@
 <div class="item">
   <h3 style="margin:0 0 8px 0">نهاية الشهر</h3>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-    <button onclick="exportExcel()">📊 تحميل Excel احترافي</button>
-    <button onclick="resetMonthData()" class="small">حذف بيانات الشهر</button>
-    <button onclick="exportBackup()" class="secondary small">📤 تصدير نسخة</button>
+    <button class="btn" onclick="exportExcel()">📊 تحميل Excel احترافي</button>
+    <button class="btn small" onclick="resetMonthData()">حذف بيانات الشهر</button>
+    <button class="btn secondary small" onclick="exportBackup()">📤 تصدير نسخة</button>
     <input type="file" id="importFile" onchange="importBackup(event)" />
   </div>
   <div style="margin-top:8px;color:#475569;font-size:13px">
@@ -111,32 +145,32 @@
   <h3 style="margin-top:0">إضافة موظفين (كل اسم بسطر)</h3>
   <textarea id="bulkEmployees" placeholder="الصق الأسماء أو اكتبها كل سطر لاسم"></textarea>
   <div style="text-align:left;margin-top:10px">
-    <button onclick="saveEmployeesBulk()">حفظ</button>
-    <button class="secondary" onclick="closeEmployeePopup()">إغلاق</button>
+    <button class="btn" onclick="saveEmployeesBulk()">حفظ</button>
+    <button class="btn secondary" onclick="closeEmployeePopup()">إغلاق</button>
   </div>
 </div>
 
 <!-- Popup: إدارة البنود -->
 <div id="criteriaPopup" class="popup" aria-hidden="true">
   <h3 style="margin-top:0">إدارة البنود</h3>
-  <div id="criteriaManage" style="max-height:300px;overflow:auto;margin-bottom:8px"></div>
+  <div id="criteriaManage" style="max-height:320px;overflow:auto;margin-bottom:8px"></div>
   <input id="newCriteria" placeholder="اكتب بند جديد ثم اضغط إضافة" style="width:100%;padding:8px;border-radius:6px;border:1px solid #e6e9ef" />
   <div style="text-align:left;margin-top:10px">
-    <button onclick="addCriteria()">إضافة</button>
-    <button class="secondary" onclick="closeCriteriaPopup()">إغلاق</button>
+    <button class="btn" onclick="addCriteria()">إضافة</button>
+    <button class="btn secondary" onclick="closeCriteriaPopup()">إغلاق</button>
   </div>
 </div>
 
-<footer>صُنع لك — أي تعديل آخر على المسافات أو حجم الأزرار أطبقه فوراً لو طلبت.</footer>
+<footer>صُنع لك — للتعديل البصري السريع قل "كبر الخط" أو "زود مسافة الأزرار" وأنا أنفّذ فوراً.</footer>
 
 <script>
-/* ======= مفاتيح التخزين ======= */
+/* ===== Storage keys ===== */
 const KEY_EMPLOYEES = "employees";
 const KEY_CRITERIA = "criteriaList";
 const KEY_EVALS = "evaluations";
 const KEY_LAST = "lastEvaluated";
 
-/* البنود الافتراضية */
+/* Default criteria */
 const DEFAULT_CRITERIA = [
   "ترحيب بداية المكالمة وذكر الاسم",
   "طلب إسم المشترك وذكره مرة واحدة",
@@ -152,13 +186,13 @@ const DEFAULT_CRITERIA = [
   "إنهاء صحيح للمكالمة"
 ];
 
-/* تحميل البيانات أو التهيئة */
+/* Load data */
 let employees = JSON.parse(localStorage.getItem(KEY_EMPLOYEES)) || [];
 let criteriaList = JSON.parse(localStorage.getItem(KEY_CRITERIA)) || DEFAULT_CRITERIA.slice();
 let evaluations = JSON.parse(localStorage.getItem(KEY_EVALS)) || [];
 let lastEvaluated = localStorage.getItem(KEY_LAST) || "";
 
-/* عرض أسماء الموظفين في القائمة */
+/* ===== UI rendering (Option C) ===== */
 function loadEmployeeNames(){
   const sel = document.getElementById("employeeSelect");
   sel.innerHTML = "";
@@ -176,38 +210,44 @@ function loadEmployeeNames(){
   }
 }
 
-/* عرض البنود بشكل مطابق للنسخة القديمة: سطر البند ثم أزرار صغيرة تحتها جنب بعض */
 function renderCriteria(){
   const container = document.getElementById("criteriaContainer");
   container.innerHTML = "";
   criteriaList.forEach((c, idx) => {
-    const item = document.createElement("div");
-    item.className = "criteria-old";
-    item.innerHTML = `
-      ${c}<br>
-      <div class="actions">
-        <button onclick="setMark(this,'✔️')" aria-label="صح">✔️</button>
-        <button onclick="setMark(this,'✖️')" aria-label="خطأ">✖️</button>
+    const row = document.createElement("div");
+    row.className = "criteria-row";
+    row.innerHTML = `
+      <div class="criteria-text">${c}</div>
+      <div class="criteria-actions" role="group" aria-label="خيارات التقييم">
+        <button aria-label="صح" title="صح" onclick="setMark(this,'✔️')" data-idx="${idx}" aria-pressed="false">✔️</button>
+        <button aria-label="خطأ" title="خطأ" onclick="setMark(this,'✖️')" data-idx="${idx}" aria-pressed="false">✖️</button>
         <span class="result" data-index="${idx}"></span>
       </div>
     `;
-    container.appendChild(item);
+    container.appendChild(row);
   });
 }
 
-/* وضع العلامة (النص) فقط داخل الـ span — بدون أي تغيير بصري آخر */
+/* Set mark: only update span text and aria-pressed states */
 function setMark(btn, val){
-  const parent = btn.closest(".criteria-old");
-  const span = parent.querySelector(".result");
+  const row = btn.closest(".criteria-row");
+  if(!row) return;
+  // toggle pressed states: set this button pressed
+  const buttons = row.querySelectorAll(".criteria-actions button");
+  buttons.forEach(b => {
+    b.setAttribute("aria-pressed", (b === btn) ? "true" : "false");
+  });
+  const span = row.querySelector(".result");
   if(span) span.innerText = val;
 }
 
-/* إعادة تعيين */
+/* reset */
 function resetView(){
   document.querySelectorAll(".result").forEach(r => r.innerText = "");
+  document.querySelectorAll(".criteria-actions button").forEach(b => b.setAttribute("aria-pressed","false"));
 }
 
-/* إظهار الأخطاء (تصفية) */
+/* show mistakes */
 function showMistakes(){
   const results = [...document.querySelectorAll(".result")];
   const mistakes = [];
@@ -218,7 +258,7 @@ function showMistakes(){
   else alert("الأخطاء المسجّلة:\n\n" + mistakes.join("\n"));
 }
 
-/* حفظ التقييم مع إدخال درجة الفيرنت */
+/* save evaluation */
 function saveEvaluation(){
   const sel = document.getElementById("employeeSelect");
   const employee = sel.value;
@@ -251,7 +291,7 @@ function saveEvaluation(){
   resetView();
 }
 
-/* حذف بيانات الشهر */
+/* reset month */
 function resetMonthData(){
   if(!confirm("هل أنت متأكد أنك تريد حذف جميع تقييمات هذا الشهر والبدء من جديد؟")) return;
   evaluations = [];
@@ -262,7 +302,7 @@ function resetMonthData(){
   alert("تم حذف بيانات الشهر ✔️");
 }
 
-/* ===== Popups: إضافة موظفين و إدارة البنود ===== */
+/* ===== Popups: add employees & manage criteria ===== */
 function openEmployeePopup(){ document.getElementById("employeePopup").style.display = "block"; }
 function closeEmployeePopup(){ document.getElementById("employeePopup").style.display = "none"; }
 
@@ -278,7 +318,7 @@ function saveEmployeesBulk(){
   alert(names.length + " موظف تم إضافتهم ✔️");
 }
 
-/* إدارة البنود */
+/* manage criteria */
 function openCriteriaPopup(){
   const div = document.getElementById("criteriaManage");
   div.innerHTML = "";
@@ -288,7 +328,7 @@ function openCriteriaPopup(){
     row.style.justifyContent = "space-between";
     row.style.alignItems = "center";
     row.style.padding = "6px 0";
-    row.innerHTML = `<div style="flex:1">${c}</div><div><button onclick="deleteCriteria(${i})" class="secondary small">❌ حذف</button></div>`;
+    row.innerHTML = `<div style="flex:1">${c}</div><div><button class="btn secondary small" onclick="deleteCriteria(${i})">❌ حذف</button></div>`;
     div.appendChild(row);
   });
   document.getElementById("criteriaPopup").style.display = "block";
@@ -310,7 +350,7 @@ function deleteCriteria(i){
   openCriteriaPopup();
 }
 
-/* ===== استيراد / تصدير نسخة JSON ===== */
+/* Backup export/import */
 function exportBackup(){
   const data = { employees, criteriaList, evaluations, lastEvaluated };
   const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
@@ -349,14 +389,13 @@ function importBackup(e){
   e.target.value = "";
 }
 
-/* ===== Excel Export (ExcelJS) ===== */
+/* ===== Excel Export (ExcelJS) — same as before ===== */
 async function exportExcel(){
   if(typeof ExcelJS === "undefined"){
     alert("مكتبة ExcelJS غير متوفرة (راجع اتصال الإنترنت).");
     return;
   }
 
-  // group evaluations
   const grouped = {};
   evaluations.forEach(ev => {
     if(!grouped[ev.employee]) grouped[ev.employee] = {scores: [], warnings: 0};
@@ -552,7 +591,6 @@ async function exportExcel(){
   });
   kpiSheet.eachRow(r => r.eachCell(c => c.border = {top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}}));
 
-  /* ---- Save file ---- */
   workbook.xlsx.writeBuffer().then(buffer => {
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     saveAs(blob, "QA_Report_2.0.xlsx");
@@ -581,7 +619,6 @@ function init(){
   renderCriteria();
 }
 init();
-
 </script>
 </body>
 </html>
