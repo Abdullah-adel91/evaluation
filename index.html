@@ -1,76 +1,71 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>نظام تقييم الجودة</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<title>QA System 2.0</title>
+
+<script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver/dist/FileSaver.min.js"></script>
+
 <style>
-body{direction:rtl;font-family:Arial;background:#f4f6f8;padding:12px}
-h2,h3{text-align:center}
-.box{background:#fff;padding:12px;margin:10px 0;border-radius:10px}
-.item{border-bottom:1px solid #eee;padding:8px 0}
-button{padding:6px 12px;margin:4px;font-size:15px;cursor:pointer}
-select{padding:8px;width:70%}
-.result{font-weight:bold;margin-right:10px}
-.good{color:green}
-.bad{color:red}
+body{font-family:tahoma;background:#f4f6f9;margin:20px}
+h2{color:#1e3a8a}
+select,button,input{padding:8px;margin:5px}
+button{cursor:pointer;border:none;border-radius:6px}
+.primary{background:#1e3a8a;color:white}
+.secondary{background:#6b7280;color:white}
+.criteria-item{margin:6px 0}
 .popup{
-display:none;
-position:fixed;
-top:0;left:0;right:0;bottom:0;
-background:rgba(0,0,0,0.5);
-z-index:9999;
+display:none;position:fixed;top:50%;left:50%;
+transform:translate(-50%,-50%);
+background:white;padding:20px;border-radius:10px;
+box-shadow:0 0 20px rgba(0,0,0,0.3)
 }
-.popup-content{
-background:#fff;
-width:90%;
-max-width:400px;
-margin:100px auto;
-padding:15px;
-border-radius:10px;
-}
-textarea{width:100%;padding:8px}
+.popup textarea{width:300px;height:120px}
 </style>
 </head>
+
 <body>
 
-<h2>نظام تقييم المكالمات</h2>
+<h2>نظام تقييم الجودة 2.0</h2>
 
-<div class="box">
-<h3>اختيار الموظف</h3>
-<select id="employee"></select>
-<button onclick="openEmployeePopup()">➕ إضافة موظفين</button>
+<select id="employeeSelect"></select>
+<button onclick="openEmployeePopup()" class="secondary">➕ إضافة موظفين</button>
+<button onclick="openCriteriaPopup()" class="secondary">⚙ إدارة البنود</button>
+
+<hr>
+
+<div id="criteriaContainer"></div>
+
+<br>
+<button onclick="showErrors()" class="secondary">إظهار الأخطاء</button>
+<button onclick="saveEvaluation()" class="primary">حفظ التقييم</button>
+<button onclick="exportExcel()" class="primary">تصدير Excel احترافي</button>
+<button onclick="exportBackup()" class="secondary">📤 تصدير نسخة</button>
+<input type="file" onchange="importBackup(event)"/>
+
+<!-- إضافة موظفين -->
+<div class="popup" id="employeePopup">
+<h3>إضافة موظفين (كل اسم بسطر)</h3>
+<textarea id="employeeNames"></textarea><br>
+<button onclick="saveEmployees()" class="primary">حفظ</button>
+<button onclick="closeEmployeePopup()">إغلاق</button>
 </div>
 
-<div class="box">
-<h3>بنود التقييم</h3>
-<div id="criteria"></div>
-<button onclick="showMistakes()">تصفية الأخطاء</button>
-<button onclick="finalSave()">حفظ التقييم النهائي</button>
-<button onclick="resetMarks()">إعادة التقييم</button>
-</div>
-
-<div class="box">
-<h3>نهاية الشهر</h3>
-<button onclick="exportExcel()">تحميل Excel</button>
-<button onclick="clearAll()">حذف بيانات الشهر</button>
-</div>
-
-<!-- Popup إضافة موظفين -->
-<div id="employeePopup" class="popup">
-<div class="popup-content">
-<h3>إضافة موظفين</h3>
-<textarea id="employeeBulk" rows="8" placeholder="الصق الأسماء هنا (كل اسم في سطر)"></textarea>
-<br><br>
-<button onclick="saveEmployeesBulk()">حفظ</button>
-<button onclick="closeEmployeePopup()">إلغاء</button>
-</div>
+<!-- إدارة البنود -->
+<div class="popup" id="criteriaPopup">
+<h3>إدارة البنود</h3>
+<div id="manageCriteria"></div>
+<input id="newCriteria" placeholder="بند جديد">
+<button onclick="addCriteria()" class="primary">إضافة</button>
+<button onclick="closeCriteriaPopup()">إغلاق</button>
 </div>
 
 <script>
 
-const criteriaList=[
+// ================== DATA ==================
+let employees = JSON.parse(localStorage.getItem("employees")) || [];
+let criteria = JSON.parse(localStorage.getItem("criteria")) || [
 "ترحيب بداية المكالمة وذكر الاسم",
 "طلب اسم المشترك وذكره مرة واحدة",
 "أخذ رقم الحساب أو استخدام وسائل مساعدة",
@@ -84,173 +79,335 @@ const criteriaList=[
 "توثيق المكالمة",
 "إنهاء صحيح للمكالمة"
 ];
+let evaluations = JSON.parse(localStorage.getItem("evaluations")) || [];
+let lastEvaluated = localStorage.getItem("lastEvaluated") || "";
 
-let employees=JSON.parse(localStorage.getItem("employees"))||[];
-let evaluations=JSON.parse(localStorage.getItem("evaluations"))||[];
-
+// ================== RENDER ==================
 function renderEmployees(){
- let sel=document.getElementById("employee");
- sel.innerHTML="<option value=''>اختر موظف</option>";
- employees.forEach(e=>sel.innerHTML+=`<option>${e}</option>`);
+let select=document.getElementById("employeeSelect");
+select.innerHTML="";
+employees.forEach(emp=>{
+let option=document.createElement("option");
+option.value=emp;
+option.textContent = emp + (emp===lastEvaluated?" ⭐":"");
+select.appendChild(option);
+});
 }
 
 function renderCriteria(){
- let d=document.getElementById("criteria");
- d.innerHTML="";
- criteriaList.forEach(c=>{
-   d.innerHTML+=`
-   <div class="item">
-   ${c}<br>
-   <button onclick="mark(this,1)">✔️</button>
-   <button onclick="mark(this,0)">✖️</button>
-   <span class="result"></span>
-   </div>`;
- });
+let container=document.getElementById("criteriaContainer");
+container.innerHTML="";
+criteria.forEach(c=>{
+container.innerHTML+=`
+<div class="criteria-item">
+<label><input type="checkbox" value="${c}"> ${c}</label>
+</div>`;
+});
 }
 
-function mark(btn,val){
- let r=btn.parentElement.querySelector(".result");
- r.textContent=val?"✔️":"✖️";
- r.className="result "+(val?"good":"bad");
- r.dataset.val=val;
+// ================== SAVE ==================
+function saveEvaluation(){
+let emp=document.getElementById("employeeSelect").value;
+if(!emp) return alert("اختر موظف");
+
+let errors=[];
+document.querySelectorAll("#criteriaContainer input").forEach(cb=>{
+if(cb.checked) errors.push(cb.value);
+});
+
+let score=prompt("أدخل درجة الفيرنت:");
+if(score===null) return;
+
+evaluations.push({
+employee:emp,
+score:Number(score),
+errors:errors
+});
+
+localStorage.setItem("evaluations",JSON.stringify(evaluations));
+localStorage.setItem("lastEvaluated",emp);
+lastEvaluated=emp;
+renderEmployees();
+alert("تم حفظ التقييم ✔");
 }
 
-function resetMarks(){
- document.querySelectorAll(".result").forEach(r=>{
-   r.textContent="";
-   r.dataset.val="";
- });
+// ================== ERROR VIEW ==================
+function showErrors(){
+document.querySelectorAll("#criteriaContainer input").forEach(cb=>{
+if(!cb.checked) cb.parentElement.style.display="none";
+});
 }
 
-function showMistakes(){
- let emp=document.getElementById("employee").value;
- if(!emp) return alert("اختر موظف");
- let results=[...document.querySelectorAll(".result")];
- if(results.some(r=>r.dataset.val==="")) return alert("قيّم كل البنود");
+// ================== EXCEL ==================
+async function exportExcel(){
 
- let mistakes=[];
- results.forEach((r,i)=>{
-   if(r.dataset.val==="0") mistakes.push("- "+criteriaList[i]);
- });
+const workbook = new ExcelJS.Workbook();
 
- alert(mistakes.length?mistakes.join("\n"):"لا توجد أخطاء ✔️");
+// تجميع البيانات
+let grouped={};
+evaluations.forEach(ev=>{
+if(!grouped[ev.employee]){
+grouped[ev.employee]={scores:[],warnings:0};
+}
+grouped[ev.employee].scores.push(ev.score);
+if(ev.score===0) grouped[ev.employee].warnings++;
+});
+
+// ========== Overview ==========
+const summarySheet = workbook.addWorksheet("Overview");
+summarySheet.views = [{state:'frozen', ySplit:1}];
+
+summarySheet.columns = [
+{header:"الموظف", width:22},
+{header:"عدد التقييمات", width:16},
+{header:"تقييم1", width:10},
+{header:"تقييم2", width:10},
+{header:"تقييم3", width:10},
+{header:"تقييم4", width:10},
+{header:"تقييم5", width:10},
+{header:"تقييم6", width:10},
+{header:"تقييم7", width:10},
+{header:"تقييم8", width:10},
+{header:"المتوسط", width:14},
+{header:"الإنذارات", width:14},
+];
+
+summarySheet.getRow(1).eachCell(cell=>{
+cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'1E3A8A'}};
+cell.font={color:{argb:'FFFFFF'},bold:true};
+});
+
+let summaryData=[];
+
+employees.forEach(emp=>{
+let scores = grouped[emp]?.scores || [];
+let warnings = grouped[emp]?.warnings || 0;
+let avg = scores.length? scores.reduce((a,b)=>a+b,0)/scores.length : 0;
+
+let row = summarySheet.addRow([
+emp + (emp===lastEvaluated?" ⭐":""),
+scores.length,
+...scores.slice(0,8),
+avg,
+warnings
+]);
+
+if(row.number%2===0){
+row.eachCell(c=>{
+c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'F3F4F6'}};
+});
 }
 
-function finalSave(){
- let emp=document.getElementById("employee").value;
- if(!emp) return alert("اختر موظف");
-
- let results=[...document.querySelectorAll(".result")];
- if(results.some(r=>r.dataset.val==="")) return alert("قيّم كل البنود");
-
- let score=prompt("أدخل درجة الفيرنت:");
- if(score===null||score==="") return;
- score=Number(score);
-
- let mistakes=[];
- results.forEach((r,i)=>{
-   if(r.dataset.val==="0") mistakes.push(criteriaList[i]);
- });
-
- evaluations.push({
-   name:emp,
-   date:new Date().toLocaleDateString("ar-SA"),
-   score:score,
-   warning:score===0?1:0,
-   mistakes:mistakes
- });
-
- localStorage.setItem("evaluations",JSON.stringify(evaluations));
- document.getElementById("employee").value="";
- resetMarks();
- alert("تم حفظ التقييم بنجاح ✔️");
+let avgCell = row.getCell(11);
+if(avg<65){
+avgCell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'DC2626'}};
+avgCell.font={color:{argb:'FFFFFF'},bold:true};
+}else if(avg<85){
+avgCell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FACC15'}};
+avgCell.font={bold:true};
+}else{
+avgCell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'16A34A'}};
+avgCell.font={color:{argb:'FFFFFF'},bold:true};
 }
 
-function exportExcel(){
- if(!evaluations.length) return alert("لا توجد بيانات");
+summaryData.push({emp,avg,warnings,count:scores.length});
+});
 
- let avgTeam=(evaluations.reduce((s,x)=>s+x.score,0)/evaluations.length).toFixed(2);
- let totalWarn=evaluations.filter(x=>x.warning).length;
+summarySheet.eachRow(row=>{
+row.eachCell(cell=>{
+cell.border={top:{style:'thin'},left:{style:'thin'},
+bottom:{style:'thin'},right:{style:'thin'}};
+});
+});
 
- let kpis=[
- ["المؤشر","القيمة"],
- ["عدد التقييمات",evaluations.length],
- ["متوسط الفريق",avgTeam],
- ["عدد الإنذارات",totalWarn]
- ];
+// ========== Top & Review ==========
+const topSheet = workbook.addWorksheet("Top & Review");
+topSheet.views = [{state:'frozen', ySplit:1}];
 
- let summary=[["الموظف","عدد التقييمات",
- "تقييم1","تقييم2","تقييم3","تقييم4",
- "تقييم5","تقييم6","تقييم7","تقييم8",
- "المتوسط","الإنذارات"]];
+topSheet.columns = [
+{header:"الموظف", width:22},
+{header:"المتوسط", width:14},
+{header:"عدد التقييمات", width:16},
+{header:"عدد الإنذارات", width:14}
+];
 
- employees.forEach(e=>{
-   let ev=evaluations.filter(v=>v.name===e);
-   let scores=ev.map(v=>v.score).slice(0,8);
-   while(scores.length<8) scores.push("");
-   let valid=scores.filter(x=>x!=="");
-   let avg=(valid.reduce((a,b)=>a+b,0)/valid.length||0).toFixed(2);
-   let warn=ev.filter(x=>x.warning).length;
-   summary.push([e,ev.length,...scores,avg,warn]);
- });
+topSheet.getRow(1).eachCell(cell=>{
+cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'1E3A8A'}};
+cell.font={color:{argb:'FFFFFF'},bold:true};
+});
 
- let follow=[["الموظف","المتوسط","الحالة"]];
- summary.slice(1).forEach(r=>{
-   if(r[10]<75){
-     follow.push([r[0],r[10],"يحتاج متابعة"]);
-   }
- });
+let sorted = [...summaryData]
+.filter(e=>e.count>0)
+.sort((a,b)=>{
+if(b.avg!==a.avg) return b.avg-a.avg;
+return a.warnings-b.warnings;
+});
 
- let err=[["البند","عدد التكرار"]];
- criteriaList.forEach(c=>{
-   let count=0;
-   evaluations.forEach(e=>{
-     if(e.mistakes.includes(c)) count++;
-   });
-   err.push([c,count]);
- });
+// Top 5
+sorted.slice(0,5).forEach(e=>{
+let r=topSheet.addRow([e.emp,e.avg,e.count,e.warnings]);
+r.eachCell(c=>{
+c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'DCFCE7'}};
+});
+});
 
- let wb=XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(kpis),"KPIs");
- XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summary),"ملخص الموظفين");
- XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(follow),"يحتاج متابعة");
- XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(err),"تحليل الأخطاء");
- XLSX.writeFile(wb,"تقييم_الجودة.xlsx");
+topSheet.addRow([]);
+
+// Needs Review
+[...sorted]
+.sort((a,b)=>{
+if(a.avg!==b.avg) return a.avg-b.avg;
+return b.warnings-a.warnings;
+})
+.slice(0,5)
+.forEach(e=>{
+let r=topSheet.addRow([e.emp,e.avg,e.count,e.warnings]);
+if(e.avg<65){
+r.getCell(2).fill={type:'pattern',pattern:'solid',fgColor:{argb:'DC2626'}};
+r.getCell(2).font={color:{argb:'FFFFFF'},bold:true};
+}else{
+r.eachCell(c=>{
+c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FEF9C3'}};
+});
+}
+});
+
+topSheet.eachRow(row=>{
+row.eachCell(cell=>{
+cell.border={top:{style:'thin'},left:{style:'thin'},
+bottom:{style:'thin'},right:{style:'thin'}};
+});
+});
+
+// ========== Performance Matrix ==========
+const matrixSheet = workbook.addWorksheet("Performance Matrix");
+
+matrixSheet.addRow(["الموظف",...criteria]);
+matrixSheet.getRow(1).eachCell(cell=>{
+cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'1E3A8A'}};
+cell.font={color:{argb:'FFFFFF'},bold:true};
+});
+
+employees.forEach(emp=>{
+let row=[emp];
+criteria.forEach(c=>{
+let count=0;
+evaluations.forEach(ev=>{
+if(ev.employee===emp && ev.errors.includes(c)) count++;
+});
+row.push(count);
+});
+let r = matrixSheet.addRow(row);
+
+criteria.forEach((c,i)=>{
+let cell=r.getCell(i+2);
+if(cell.value>=6){
+cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'DC2626'}};
+cell.font={color:{argb:'FFFFFF'}};
+}else if(cell.value>=4){
+cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FACC15'}};
+}
+});
+});
+
+matrixSheet.eachRow(row=>{
+row.eachCell(cell=>{
+cell.border={top:{style:'thin'},left:{style:'thin'},
+bottom:{style:'thin'},right:{style:'thin'}};
+});
+});
+
+// ========== KPIs ==========
+const kpiSheet = workbook.addWorksheet("KPIs");
+
+let allScores=evaluations.map(e=>e.score);
+let teamAvg = allScores.length? allScores.reduce((a,b)=>a+b,0)/allScores.length : 0;
+let totalWarnings = evaluations.filter(e=>e.score===0).length;
+
+kpiSheet.addRows([
+["عدد التقييمات",evaluations.length],
+["متوسط الفريق",teamAvg.toFixed(2)],
+["عدد الإنذارات",totalWarnings]
+]);
+
+kpiSheet.eachRow(row=>{
+row.eachCell(cell=>{
+cell.border={top:{style:'thin'},left:{style:'thin'},
+bottom:{style:'thin'},right:{style:'thin'}};
+});
+});
+
+const buffer = await workbook.xlsx.writeBuffer();
+saveAs(new Blob([buffer]), "QA_Report_2.0.xlsx");
 }
 
-function clearAll(){
- if(confirm("حذف كل البيانات؟")){
-   localStorage.clear();
-   employees=[];
-   evaluations=[];
-   renderEmployees();
- }
+// ================== BACKUP ==================
+function exportBackup(){
+let data={employees,criteria,evaluations};
+let blob=new Blob([JSON.stringify(data)],{type:"application/json"});
+let a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="backup.json";
+a.click();
 }
 
-function openEmployeePopup(){
- document.getElementById("employeePopup").style.display="block";
+function importBackup(e){
+let file=e.target.files[0];
+let reader=new FileReader();
+reader.onload=function(){
+let data=JSON.parse(reader.result);
+employees=data.employees;
+criteria=data.criteria;
+evaluations=data.evaluations;
+localStorage.setItem("employees",JSON.stringify(employees));
+localStorage.setItem("criteria",JSON.stringify(criteria));
+localStorage.setItem("evaluations",JSON.stringify(evaluations));
+renderEmployees();
+renderCriteria();
+alert("تم الاستيراد");
+};
+reader.readAsText(file);
 }
 
-function closeEmployeePopup(){
- document.getElementById("employeePopup").style.display="none";
- document.getElementById("employeeBulk").value="";
+// ================== EMPLOYEE ==================
+function openEmployeePopup(){document.getElementById("employeePopup").style.display="block";}
+function closeEmployeePopup(){document.getElementById("employeePopup").style.display="none";}
+function saveEmployees(){
+let names=document.getElementById("employeeNames").value.split("\n");
+names.forEach(n=>{
+if(n.trim() && !employees.includes(n.trim())){
+employees.push(n.trim());
+}
+});
+localStorage.setItem("employees",JSON.stringify(employees));
+renderEmployees();
+closeEmployeePopup();
 }
 
-function saveEmployeesBulk(){
- let txt=document.getElementById("employeeBulk").value;
- if(!txt) return alert("لا توجد أسماء");
-
- let names=txt.split(/\r?\n/)
-   .map(n=>n.trim())
-   .filter(n=>n);
-
- employees.push(...names);
- employees=[...new Set(employees)];
-
- localStorage.setItem("employees",JSON.stringify(employees));
- renderEmployees();
- closeEmployeePopup();
- alert("تمت إضافة "+names.length+" موظف ✔️");
+// ================== CRITERIA ==================
+function openCriteriaPopup(){
+let div=document.getElementById("manageCriteria");
+div.innerHTML="";
+criteria.forEach((c,i)=>{
+div.innerHTML+=`<div>${c} <button onclick="deleteCriteria(${i})">❌</button></div>`;
+});
+document.getElementById("criteriaPopup").style.display="block";
+}
+function closeCriteriaPopup(){document.getElementById("criteriaPopup").style.display="none";}
+function addCriteria(){
+let newC=document.getElementById("newCriteria").value;
+if(newC){
+criteria.push(newC);
+localStorage.setItem("criteria",JSON.stringify(criteria));
+renderCriteria();
+openCriteriaPopup();
+}
+}
+function deleteCriteria(i){
+criteria.splice(i,1);
+localStorage.setItem("criteria",JSON.stringify(criteria));
+renderCriteria();
+openCriteriaPopup();
 }
 
 renderEmployees();
