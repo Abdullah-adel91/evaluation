@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>نظام تقييم الجودة QA 2.0   </title>
+<title>نظام تقييم الجودة QA 2.0 — النسخة الكاملة (معدّلة)</title>
 
 <!-- ExcelJS + FileSaver -->
 <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
@@ -63,6 +63,15 @@ footer{margin-top:18px;text-align:center;color:#64748b;font-size:13px}
 textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6px;border:1px solid #e5e7eb}
 .input{width:100%;padding:8px;border-radius:6px;border:1px solid #e5e7eb}
 
+/* Divider style */
+.section-divider{
+  height:2px;
+  background:#e5e7eb;
+  border-radius:2px;
+  margin:28px 0;
+  border:0;
+}
+
 /* Responsive */
 @media (max-width:720px){
   .criteria-row{grid-template-columns: 1fr 140px;font-size:16px}
@@ -74,20 +83,24 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
 </head>
 <body>
 <div class="container">
-  <h2>نظام تقييم الجودة — QA System 2.0 </h2>
+  <h2>نظام تقييم الجودة — QA System 2.0 (النسخة الكاملة)</h2>
 
   <!-- إدارة الموظفين -->
   <div class="item">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <label for="employeeSelect">اسم الموظف:</label>
-      <select id="employeeSelect" style="padding:8px;font-size:15px;min-width:260px"></select>
+      <!-- placeholder option مضاف هنا -->
+      <select id="employeeSelect" style="padding:8px;font-size:15px;min-width:260px">
+        <option value="" disabled selected>اختر الموظف</option>
+      </select>
 
       <div class="controls" style="margin-left:auto">
         <button class="btn secondary small" onclick="openEmployeePopup()">➕ إضافة موظفين</button>
         <button class="btn secondary small" onclick="openCriteriaPopup()">⚙ إدارة البنود</button>
       </div>
     </div>
-    <div style="margin-top:8px;color:#475569;font-size:
+    <div style="margin-top:8px;color:#475569;font-size:13px">
+      ملاحظة: يمكن إضافة أسماء دفعة واحدة (كل سطر اسم). آخر موظف قيّمته يظهر عليه ⭐ لسهولة التتبع.
     </div>
   </div>
 
@@ -103,6 +116,9 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
     </div>
   </div>
 
+  <!-- فاصل واضح بين مناطق العمل و نهاية الشهر -->
+  <hr class="section-divider">
+
   <!-- نهاية الشهر -->
   <div class="item">
     <h3 style="margin:0 0 8px 0">نهاية الشهر</h3>
@@ -113,11 +129,11 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
       <input type="file" id="importFile" onchange="importBackup(event)" />
     </div>
     <div style="margin-top:8px;color:#475569;font-size:13px">
-      
+      تصدير Excel يتضمن: Overview, Top & Review, Performance Matrix, تفاصيل البنود, KPIs.
     </div>
   </div>
 
-  <footer>  —              .</footer>
+  <footer>صُنع لك — إذا تبي تعديل بسيط في الستايل أو أي صفحة في الاكسل أطبعه لك فورًا.</footer>
 </div>
 
 <!-- Popups -->
@@ -176,12 +192,10 @@ function updateMistakeButtonState(){
   if(!btn) return;
   // if any result empty => disable
   btn.disabled = results.length === 0 || results.some(r => r.innerText === "");
-  // optional: visual cue when enabled
+  // visual cue when enabled
   if(btn.disabled){
-    btn.classList.remove("btn-success");
     btn.style.background = "";
   } else {
-    // keep secondary look but make it slightly highlighted
     btn.style.background = "linear-gradient(90deg,#2b6cb0,#1e40af)";
   }
 }
@@ -190,17 +204,24 @@ function updateMistakeButtonState(){
 function loadEmployeeNames(){
   const sel = document.getElementById("employeeSelect");
   sel.innerHTML = "";
+  // placeholder always first
+  const ph = document.createElement("option");
+  ph.value = "";
+  ph.textContent = "اختر الموظف";
+  ph.disabled = true;
+  ph.selected = true;
+  sel.appendChild(ph);
+
   employees.forEach(emp => {
     const opt = document.createElement("option");
     opt.value = emp;
     opt.textContent = emp + (emp === lastEvaluated ? " ⭐" : "");
     sel.appendChild(opt);
   });
+
   if(employees.length === 0){
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "لا يوجد موظفين — أضف أسماء";
-    sel.appendChild(opt);
+    // leave placeholder only (already added)
+    ph.textContent = "لا يوجد موظفين — أضف أسماء";
   }
 }
 
@@ -287,10 +308,16 @@ function saveEvaluation(){
     date: new Date().toISOString()
   });
 
+  // حفظ البيانات
   localStorage.setItem(KEY_EVALS, JSON.stringify(evaluations));
+  // احتفظ بآخر موظف لتحديد النجمة في التقارير لكن لا نختاره في القائمة بعد الحفظ
   localStorage.setItem(KEY_LAST, employee);
   lastEvaluated = employee;
   loadEmployeeNames();
+
+  // إعادة تعيين القائمة لتكون فارغة مع placeholder
+  const selAfter = document.getElementById("employeeSelect");
+  selAfter.value = ""; // يختار خيار الـ placeholder
 
   alert("تم حفظ التقييم ✔️");
   resetView();
