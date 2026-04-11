@@ -72,6 +72,17 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
   border:0;
 }
 
+/* File status */
+.file-status{
+  padding:6px 10px;
+  border-radius:8px;
+  font-size:13px;
+  font-weight:700;
+  display:inline-block;
+}
+.file-status.bad{background:#dc2626;color:#fff}
+.file-status.ok{background:#16a34a;color:#fff}
+
 /* Responsive */
 @media (max-width:720px){
   .criteria-row{grid-template-columns: 1fr 140px;font-size:16px}
@@ -89,7 +100,6 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
   <div class="item">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <label for="employeeSelect">اسم الموظف:</label>
-      <!-- placeholder option مضاف هنا -->
       <select id="employeeSelect" style="padding:8px;font-size:15px;min-width:260px">
         <option value="" disabled selected>اختر الموظف</option>
       </select>
@@ -99,8 +109,13 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
         <button class="btn secondary small" onclick="openCriteriaPopup()">⚙ إدارة البنود</button>
       </div>
     </div>
-    <div style="margin-top:8px;color:#475569;font-size:13px">
+
+    <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button class="btn" onclick="chooseFile()">📁 اختيار ملف الحفظ</button>
+      <span id="fileStatus" class="file-status bad">❌ لم يتم اختيار ملف</span>
     </div>
+
+    <div style="margin-top:8px;color:#475569;font-size:13px"></div>
   </div>
 
   <!-- بنود التقييم -->
@@ -127,9 +142,7 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
       <button class="btn secondary small" onclick="exportBackup()">📤 تصدير نسخة (Backup)</button>
       <input type="file" id="importFile" onchange="importBackup(event)" />
     </div>
-    <div style="margin-top:8px;color:#475569;font-size:13px">
-      
-    </div>
+    <div style="margin-top:8px;color:#475569;font-size:13px"></div>
   </div>
 
   <footer> </footer>
@@ -184,6 +197,65 @@ let criteriaList = JSON.parse(localStorage.getItem(KEY_CRITERIA)) || DEFAULT_CRI
 let evaluations = JSON.parse(localStorage.getItem(KEY_EVALS)) || [];
 let lastEvaluated = localStorage.getItem(KEY_LAST) || "";
 
+/* ===== File System Access API ===== */
+let fileHandle = null;
+let warnedBefore = false;
+
+function updateFileStatus(ok){
+  const el = document.getElementById("fileStatus");
+  if(!el) return;
+  if(ok){
+    el.className = "file-status ok";
+    el.textContent = "🟢 تم ربط ملف الحفظ";
+  } else {
+    el.className = "file-status bad";
+    el.textContent = "❌ لم يتم اختيار ملف";
+  }
+}
+
+async function chooseFile(){
+  try{
+    fileHandle = await window.showSaveFilePicker({
+      suggestedName: "qa_data.json",
+      types: [{
+        description: "JSON File",
+        accept: { "application/json": [".json"] }
+      }]
+    });
+    warnedBefore = false;
+    updateFileStatus(true);
+    await autoSaveToFile();
+  }catch(e){
+    alert("تم إلغاء اختيار الملف");
+  }
+}
+
+async function autoSaveToFile(){
+  if(!fileHandle){
+    if(!warnedBefore){
+      alert("⚠️ لازم تختار ملف حفظ أول مرة عشان ما تضيع بياناتك");
+      warnedBefore = true;
+    }
+    updateFileStatus(false);
+    return;
+  }
+
+  try{
+    const writable = await fileHandle.createWritable();
+    const data = {
+      employees,
+      criteriaList,
+      evaluations,
+      lastEvaluated
+    };
+    await writable.write(JSON.stringify(data, null, 2));
+    await writable.close();
+    updateFileStatus(true);
+  }catch(e){
+    console.log("خطأ في الحفظ", e);
+  }
+}
+
 /* ===== Utility: update mistake button state ===== */
 function updateMistakeButtonState(){
   const results = [...document.querySelectorAll(".result")];
@@ -219,7 +291,6 @@ function loadEmployeeNames(){
   });
 
   if(employees.length === 0){
-    // leave placeholder only (already added)
     ph.textContent = "لا يوجد موظفين — أضف أسماء";
   }
 }
@@ -284,7 +355,7 @@ function showMistakes(){
 }
 
 /* save evaluation */
-function saveEvaluation(){
+async function saveEvaluation(){
   const sel = document.getElementById("employeeSelect");
   const employee = sel.value;
   if(!employee) return alert("اختر موظف");
@@ -318,18 +389,21 @@ function saveEvaluation(){
   const selAfter = document.getElementById("employeeSelect");
   selAfter.value = ""; // يختار خيار الـ placeholder
 
+  await autoSaveToFile();
+
   alert("تم حفظ التقييم ✔️");
   resetView();
 }
 
 /* reset month data */
-function resetMonthData(){
+async function resetMonthData(){
   if(!confirm("هل أنت متأكد أنك تريد حذف جميع تقييمات هذا الشهر والبدء من جديد؟")) return;
   evaluations = [];
   localStorage.removeItem(KEY_EVALS);
   localStorage.removeItem(KEY_LAST);
   lastEvaluated = "";
   loadEmployeeNames();
+  await autoSaveToFile();
   alert("تم حذف بيانات الشهر ✔️");
 }
 
@@ -337,7 +411,7 @@ function resetMonthData(){
 function openEmployeePopup(){ document.getElementById("employeePopup").style.display = "block"; }
 function closeEmployeePopup(){ document.getElementById("employeePopup").style.display = "none"; }
 
-function saveEmployeesBulk(){
+async function saveEmployeesBulk(){
   const txt = document.getElementById("bulkEmployees").value;
   const names = txt.split(/\r?\n/).map(s => s.trim()).filter(s => s);
   if(names.length === 0){ alert("لا توجد أسماء"); return; }
@@ -347,6 +421,7 @@ function saveEmployeesBulk(){
   loadEmployeeNames();
   updateMistakeButtonState();
   closeEmployeePopup();
+  await autoSaveToFile();
   alert(names.length + " موظف تم إضافتهم ✔️");
 }
 
@@ -366,21 +441,26 @@ function openCriteriaPopup(){
   document.getElementById("criteriaPopup").style.display = "block";
 }
 function closeCriteriaPopup(){ document.getElementById("criteriaPopup").style.display = "none"; }
-function addCriteria(){
+
+async function addCriteria(){
   const v = document.getElementById("newCriteria").value.trim();
   if(!v) return alert("اكتب بندًا جديدًا");
   criteriaList.push(v);
   localStorage.setItem(KEY_CRITERIA, JSON.stringify(criteriaList));
   renderCriteria();
   updateMistakeButtonState();
+  document.getElementById("newCriteria").value = "";
+  await autoSaveToFile();
   openCriteriaPopup();
 }
-function deleteCriteria(i){
+
+async function deleteCriteria(i){
   if(!confirm("هل تريد حذف هذا البند؟")) return;
   criteriaList.splice(i,1);
   localStorage.setItem(KEY_CRITERIA, JSON.stringify(criteriaList));
   renderCriteria();
   updateMistakeButtonState();
+  await autoSaveToFile();
   openCriteriaPopup();
 }
 
@@ -393,11 +473,11 @@ function exportBackup(){
   a.download = "qa_backup.json";
   a.click();
 }
-function importBackup(e){
+async function importBackup(e){
   const file = e.target.files[0];
   if(!file) return;
   const reader = new FileReader();
-  reader.onload = function(){
+  reader.onload = async function(){
     try{
       const data = JSON.parse(reader.result);
       employees = data.employees || [];
@@ -411,6 +491,7 @@ function importBackup(e){
       loadEmployeeNames();
       renderCriteria();
       updateMistakeButtonState();
+      await autoSaveToFile();
       alert("تم استيراد النسخة ✔️");
     } catch(err){
       alert("ملف غير صالح");
@@ -657,6 +738,7 @@ function init(){
   loadEmployeeNames();
   renderCriteria();
   updateMistakeButtonState();
+  updateFileStatus(!!fileHandle);
 }
 init();
 </script>
