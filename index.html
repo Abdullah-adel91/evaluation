@@ -783,7 +783,6 @@ function manageEmployees(){
   );
 
   div.innerHTML = employees.map((emp,index)=>`
-
     <div style="
       display:flex;
       gap:6px;
@@ -814,8 +813,8 @@ function manageEmployees(){
 
     </div>
 
-  `).join("");
 
+`).join("");
   document.getElementById(
     "manageEmployeesPopup"
   ).style.display = "block";
