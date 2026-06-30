@@ -125,8 +125,19 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
 
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="mistakeBtn" class="btn secondary small" onclick="showMistakes()" disabled>عرض الأخطاء (تصفية)</button>
-      <button class="btn small" onclick="saveEvaluation()">حفظ التقييم</button>
-      <button class="btn secondary small" onclick="resetView()">إعادة التقييم</button>
+      <button class="btn small" onclick="saveEvaluation()">
+حفظ التقييم
+</button>
+
+<button class="btn secondary small"
+onclick="showEvaluationHistory()">
+📋 سجل التقييمات
+</button>
+
+<button class="btn secondary small"
+onclick="resetView()">
+إعادة التقييم
+</button>
     </div>
   </div>
 
@@ -167,7 +178,28 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
     <button class="btn secondary" onclick="closeCriteriaPopup()">إغلاق</button>
   </div>
 </div>
+<div id="historyPopup" class="popup">
 
+  <h3>سجل التقييمات</h3>
+
+  <div
+    id="historyContent"
+    style="max-height:400px;overflow:auto">
+  </div>
+
+  <div style="text-align:left;margin-top:10px">
+
+    <button
+      class="btn secondary"
+      onclick="closeHistoryPopup()">
+
+      إغلاق
+
+    </button>
+
+  </div>
+
+</div>
 <script>
 /* ===== Storage keys ===== */
 const KEY_EMPLOYEES = "qa_employees_v2";
@@ -366,17 +398,33 @@ async function saveEvaluation(){
   const mistakes = [];
   results.forEach((r,i) => { if(r.innerText === "✖️") mistakes.push(criteriaList[i]); });
 
-  const scoreStr = prompt("أدخل درجة الفيرنت (0 - 100):");
-  if(scoreStr === null) return;
-  const score = Number(scoreStr);
-  if(isNaN(score) || score < 0) return alert("درجة غير صحيحة");
+const scoreStr = prompt("أدخل درجة الفيرنت (0 - 100):");
 
-  evaluations.push({
-    employee,
-    score,
-    errors: mistakes,
-    date: new Date().toISOString()
-  });
+if(scoreStr === null){
+  return;
+}
+
+if(scoreStr.trim() === ""){
+  return alert("الرجاء إدخال درجة الفيرنت");
+}
+
+const score = Number(scoreStr);
+
+if(
+  isNaN(score) ||
+  score < 0 ||
+  score > 100
+){
+  return alert("درجة غير صحيحة");
+}
+
+evaluations.push({
+  id: Date.now(),
+  employee,
+  score,
+  errors: mistakes,
+  date: new Date().toISOString()
+});
 
   // حفظ البيانات
   localStorage.setItem(KEY_EVALS, JSON.stringify(evaluations));
@@ -740,6 +788,91 @@ function init(){
   updateMistakeButtonState();
   updateFileStatus(!!fileHandle);
 }
+
+function closeHistoryPopup(){
+  document.getElementById(
+    "historyPopup"
+  ).style.display = "none";
+}
+
+function showEvaluationHistory(){
+
+  const div =
+  document.getElementById(
+    "historyContent"
+  );
+
+  if(evaluations.length === 0){
+
+    div.innerHTML =
+    "<p>لا توجد تقييمات محفوظة</p>";
+
+  }else{
+
+    div.innerHTML =
+    evaluations.map((ev,index)=>`
+
+      <div style="
+      border:1px solid #ddd;
+      padding:10px;
+      margin:8px 0;
+      border-radius:8px">
+
+        <b>${ev.employee}</b>
+
+        <br>
+
+        الدرجة:
+        ${ev.score}
+
+        <br>
+
+        عدد الأخطاء:
+        ${ev.errors.length}
+
+        <br><br>
+
+        <button
+        class="btn danger small"
+        onclick="deleteEvaluation(${index})">
+
+        حذف التقييم
+
+        </button>
+
+      </div>
+
+    `).join("");
+
+  }
+
+  document.getElementById(
+    "historyPopup"
+  ).style.display = "block";
+}
+
+async function deleteEvaluation(index){
+
+  if(
+    !confirm(
+      "هل تريد حذف التقييم؟"
+    )
+  ){
+    return;
+  }
+
+  evaluations.splice(index,1);
+
+  localStorage.setItem(
+    KEY_EVALS,
+    JSON.stringify(evaluations)
+  );
+
+  await autoSaveToFile();
+
+  showEvaluationHistory();
+}
+
 init();
 </script>
 </body>
