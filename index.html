@@ -769,25 +769,51 @@ async function exportExcel(){
 }
 
 /* ===== INIT ===== */
-  function closeManageEmployees(){
-  document.getElementById(
-    "manageEmployeesPopup"
-  ).style.display = "none";
+
+function init(){
+
+  try{
+    if(localStorage.getItem(KEY_EMPLOYEES))
+      employees = JSON.parse(localStorage.getItem(KEY_EMPLOYEES));
+
+    if(localStorage.getItem(KEY_CRITERIA))
+      criteriaList = JSON.parse(localStorage.getItem(KEY_CRITERIA));
+
+    if(localStorage.getItem(KEY_EVALS))
+      evaluations = JSON.parse(localStorage.getItem(KEY_EVALS));
+
+    lastEvaluated = localStorage.getItem(KEY_LAST) || "";
+
+  }catch(e){
+    employees = [];
+    criteriaList = DEFAULT_CRITERIA.slice();
+    evaluations = [];
+    lastEvaluated = "";
+  }
+
+  loadEmployeeNames();
+  renderCriteria();
+  updateMistakeButtonState();
+  updateFileStatus(!!fileHandle);
+}
+
+function closeManageEmployees(){
+  document.getElementById("manageEmployeesPopup").style.display = "none";
 }
 
 function manageEmployees(){
 
   const div =
-  document.getElementById(
-    "employeesManageList"
-  );
+  document.getElementById("employeesManageList");
+
+  if(!div) return;
 
   div.innerHTML = employees.map((emp,index)=>`
+
     <div style="
       display:flex;
-      gap:6px;
-      align-items:center;
       justify-content:space-between;
+      align-items:center;
       border:1px solid #ddd;
       padding:8px;
       margin:6px 0;
@@ -796,25 +822,21 @@ function manageEmployees(){
       <span>${emp}</span>
 
       <div>
-
-        <button
-          class="btn small"
-          onclick="renameEmployee(${index})">
-          ✏️
+        <button class="btn small"
+        onclick="renameEmployee(${index})">
+        ✏️
         </button>
 
-        <button
-          class="btn danger small"
-          onclick="deleteEmployee(${index})">
-          🗑️
+        <button class="btn danger small"
+        onclick="deleteEmployee(${index})">
+        🗑️
         </button>
-
       </div>
 
     </div>
 
+  `).join("");
 
-`).join("");
   document.getElementById(
     "manageEmployeesPopup"
   ).style.display = "block";
@@ -825,10 +847,7 @@ async function renameEmployee(index){
   const current = employees[index];
 
   const newName =
-  prompt(
-    "الاسم الجديد",
-    current
-  );
+  prompt("الاسم الجديد", current);
 
   if(!newName) return;
 
@@ -859,14 +878,9 @@ async function renameEmployee(index){
 
 async function deleteEmployee(index){
 
-  const employee =
-  employees[index];
+  const employee = employees[index];
 
-  if(
-    !confirm(
-      "سيتم حذف الموظف وجميع تقييماته"
-    )
-  ){
+  if(!confirm("سيتم حذف الموظف وجميع تقييماته")){
     return;
   }
 
@@ -892,28 +906,6 @@ async function deleteEmployee(index){
   await autoSaveToFile();
 
   manageEmployees();
-}
-  // load saved data
-  try{
-    if(localStorage.getItem(KEY_EMPLOYEES))
-      employees = JSON.parse(localStorage.getItem(KEY_EMPLOYEES));
-    if(localStorage.getItem(KEY_CRITERIA))
-      criteriaList = JSON.parse(localStorage.getItem(KEY_CRITERIA));
-    if(localStorage.getItem(KEY_EVALS))
-      evaluations = JSON.parse(localStorage.getItem(KEY_EVALS));
-    lastEvaluated = localStorage.getItem(KEY_LAST) || "";
-  }catch(e){
-    // if parsing failed, reset to defaults to avoid crash
-    employees = employees || [];
-    criteriaList = criteriaList || DEFAULT_CRITERIA.slice();
-    evaluations = evaluations || [];
-    lastEvaluated = lastEvaluated || "";
-  }
-
-  loadEmployeeNames();
-  renderCriteria();
-  updateMistakeButtonState();
-  updateFileStatus(!!fileHandle);
 }
 
 function closeHistoryPopup(){
@@ -945,17 +937,11 @@ function showEvaluationHistory(){
       margin:8px 0;
       border-radius:8px">
 
-        <b>${ev.employee}</b>
+        <b>${ev.employee}</b><br>
 
-        <br>
+        الدرجة: ${ev.score}<br>
 
-        الدرجة:
-        ${ev.score}
-
-        <br>
-
-        عدد الأخطاء:
-        ${ev.errors.length}
+        عدد الأخطاء: ${ev.errors.length}
 
         <br><br>
 
@@ -980,11 +966,7 @@ function showEvaluationHistory(){
 
 async function deleteEvaluation(index){
 
-  if(
-    !confirm(
-      "هل تريد حذف التقييم؟"
-    )
-  ){
+  if(!confirm("هل تريد حذف التقييم؟")){
     return;
   }
 
@@ -1001,7 +983,9 @@ async function deleteEvaluation(index){
 }
 
 init();
+
   <div id="manageEmployeesPopup" class="popup">
+
   <h3>إدارة الموظفين</h3>
 
   <div id="employeesManageList"
@@ -1014,7 +998,9 @@ init();
       إغلاق
     </button>
   </div>
+
 </div>
+  
 </script>
 </body>
 </html>
