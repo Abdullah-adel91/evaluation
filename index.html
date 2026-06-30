@@ -90,6 +90,28 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
 @media (max-width:420px){
   .criteria-row{grid-template-columns:1fr 120px;font-size:15px}
 }
+
+.dashCard{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:16px;
+  text-align:center;
+  box-shadow:0 2px 8px rgba(0,0,0,.05);
+}
+
+.dashTitle{
+  color:#64748b;
+  font-size:13px;
+  margin-bottom:8px;
+}
+
+.dashValue{
+  font-size:22px;
+  font-weight:700;
+  color:#1e3a8a;
+}
+  
 </style>
 </head>
 <body>
@@ -130,6 +152,47 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
     </div>
   </div>
 
+<div class="item" id="dashboardSection">
+
+  <h3 style="margin:0 0 12px 0">
+    📊 لوحة الأداء
+  </h3>
+
+  <div id="dashboardCards"
+       style="
+       display:grid;
+       grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+       gap:12px">
+
+    <div class="dashCard">
+      <div class="dashTitle">عدد التقييمات</div>
+      <div id="kpiTotalEvals" class="dashValue">0</div>
+    </div>
+
+    <div class="dashCard">
+      <div class="dashTitle">متوسط الفريق</div>
+      <div id="kpiTeamAvg" class="dashValue">0%</div>
+    </div>
+
+    <div class="dashCard">
+      <div class="dashTitle">أفضل موظف</div>
+      <div id="kpiBestEmployee" class="dashValue">-</div>
+    </div>
+
+    <div class="dashCard">
+      <div class="dashTitle">يحتاج متابعة</div>
+      <div id="kpiWorstEmployee" class="dashValue">-</div>
+    </div>
+
+    <div class="dashCard">
+      <div class="dashTitle">أكثر بند إخفاقاً</div>
+      <div id="kpiWorstCriteria" class="dashValue">-</div>
+    </div>
+
+  </div>
+
+</div>
+  
   <!-- فاصل واضح بين مناطق العمل و نهاية الشهر -->
   <hr class="section-divider">
 
@@ -390,7 +453,7 @@ async function saveEvaluation(){
   selAfter.value = ""; // يختار خيار الـ placeholder
 
   await autoSaveToFile();
-
+updateDashboard();
   alert("تم حفظ التقييم ✔️");
   resetView();
 }
@@ -404,6 +467,7 @@ async function resetMonthData(){
   lastEvaluated = "";
   loadEmployeeNames();
   await autoSaveToFile();
+  updateDashboard();
   alert("تم حذف بيانات الشهر ✔️");
 }
 
@@ -716,6 +780,123 @@ async function exportExcel(){
   });
 }
 
+function updateDashboard(){
+
+  document.getElementById(
+    "kpiTotalEvals"
+  ).textContent =
+  evaluations.length;
+
+  const scores =
+  evaluations.map(
+    e => Number(e.score)
+  ).filter(
+    s => !isNaN(s)
+  );
+
+  const avg =
+  scores.length
+  ? (
+      scores.reduce(
+        (a,b)=>a+b,0
+      ) / scores.length
+    ).toFixed(1)
+  : 0;
+
+  document.getElementById(
+    "kpiTeamAvg"
+  ).textContent =
+  avg + "%";
+
+  const employeeStats = {};
+
+  evaluations.forEach(ev=>{
+
+    if(!employeeStats[ev.employee]){
+      employeeStats[ev.employee] = [];
+    }
+
+    employeeStats[ev.employee]
+    .push(Number(ev.score));
+
+  });
+
+  let best = "-";
+  let bestAvg = -1;
+
+  let worst = "-";
+  let worstAvg = 101;
+
+  Object.keys(employeeStats)
+  .forEach(emp=>{
+
+    const scores =
+    employeeStats[emp];
+
+    const empAvg =
+    scores.reduce(
+      (a,b)=>a+b,0
+    ) / scores.length;
+
+    if(empAvg > bestAvg){
+      bestAvg = empAvg;
+      best = emp;
+    }
+
+    if(empAvg < worstAvg){
+      worstAvg = empAvg;
+      worst = emp;
+    }
+
+  });
+
+  document.getElementById(
+    "kpiBestEmployee"
+  ).textContent = best;
+
+  document.getElementById(
+    "kpiWorstEmployee"
+  ).textContent = worst;
+
+  const criteriaCount = {};
+
+  criteriaList.forEach(c=>{
+    criteriaCount[c] = 0;
+  });
+
+  evaluations.forEach(ev=>{
+
+    (ev.errors || [])
+    .forEach(err=>{
+
+      if(criteriaCount[err] !== undefined){
+        criteriaCount[err]++;
+      }
+
+    });
+
+  });
+
+  let worstCriteria = "-";
+  let highest = 0;
+
+  Object.entries(criteriaCount)
+  .forEach(([name,count])=>{
+
+    if(count > highest){
+      highest = count;
+      worstCriteria = name;
+    }
+
+  });
+
+  document.getElementById(
+    "kpiWorstCriteria"
+  ).textContent =
+  worstCriteria;
+
+}
+  
 /* ===== INIT ===== */
 function init(){
   // load saved data
@@ -740,6 +921,7 @@ function init(){
   updateMistakeButtonState();
   updateFileStatus(!!fileHandle);
 }
+  updateDashboard();
 init();
 </script>
 </body>
