@@ -106,6 +106,10 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
 
       <div class="controls" style="margin-left:auto">
         <button class="btn secondary small" onclick="openEmployeePopup()">➕ إضافة موظفين</button>
+
+<button class="btn secondary small" onclick="manageEmployees()">
+👤 إدارة الموظفين
+</button>
         <button class="btn secondary small" onclick="openCriteriaPopup()">⚙ إدارة البنود</button>
       </div>
     </div>
@@ -765,7 +769,131 @@ async function exportExcel(){
 }
 
 /* ===== INIT ===== */
-function init(){
+  function closeManageEmployees(){
+  document.getElementById(
+    "manageEmployeesPopup"
+  ).style.display = "none";
+}
+
+function manageEmployees(){
+
+  const div =
+  document.getElementById(
+    "employeesManageList"
+  );
+
+  div.innerHTML = employees.map((emp,index)=>`
+
+    <div style="
+      display:flex;
+      gap:6px;
+      align-items:center;
+      justify-content:space-between;
+      border:1px solid #ddd;
+      padding:8px;
+      margin:6px 0;
+      border-radius:8px">
+
+      <span>${emp}</span>
+
+      <div>
+
+        <button
+          class="btn small"
+          onclick="renameEmployee(${index})">
+          ✏️
+        </button>
+
+        <button
+          class="btn danger small"
+          onclick="deleteEmployee(${index})">
+          🗑️
+        </button>
+
+      </div>
+
+    </div>
+
+  `).join("");
+
+  document.getElementById(
+    "manageEmployeesPopup"
+  ).style.display = "block";
+}
+
+async function renameEmployee(index){
+
+  const current = employees[index];
+
+  const newName =
+  prompt(
+    "الاسم الجديد",
+    current
+  );
+
+  if(!newName) return;
+
+  employees[index] = newName.trim();
+
+  evaluations.forEach(ev=>{
+    if(ev.employee === current){
+      ev.employee = newName.trim();
+    }
+  });
+
+  localStorage.setItem(
+    KEY_EMPLOYEES,
+    JSON.stringify(employees)
+  );
+
+  localStorage.setItem(
+    KEY_EVALS,
+    JSON.stringify(evaluations)
+  );
+
+  loadEmployeeNames();
+
+  await autoSaveToFile();
+
+  manageEmployees();
+}
+
+async function deleteEmployee(index){
+
+  const employee =
+  employees[index];
+
+  if(
+    !confirm(
+      "سيتم حذف الموظف وجميع تقييماته"
+    )
+  ){
+    return;
+  }
+
+  employees.splice(index,1);
+
+  evaluations =
+  evaluations.filter(
+    e => e.employee !== employee
+  );
+
+  localStorage.setItem(
+    KEY_EMPLOYEES,
+    JSON.stringify(employees)
+  );
+
+  localStorage.setItem(
+    KEY_EVALS,
+    JSON.stringify(evaluations)
+  );
+
+  loadEmployeeNames();
+
+  await autoSaveToFile();
+
+  manageEmployees();
+}
   // load saved data
   try{
     if(localStorage.getItem(KEY_EMPLOYEES))
@@ -874,6 +1002,20 @@ async function deleteEvaluation(index){
 }
 
 init();
+  <div id="manageEmployeesPopup" class="popup">
+  <h3>إدارة الموظفين</h3>
+
+  <div id="employeesManageList"
+       style="max-height:350px;overflow:auto">
+  </div>
+
+  <div style="text-align:left;margin-top:10px">
+    <button class="btn secondary"
+            onclick="closeManageEmployees()">
+      إغلاق
+    </button>
+  </div>
+</div>
 </script>
 </body>
 </html>
