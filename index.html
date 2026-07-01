@@ -212,7 +212,7 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
     <h3 style="margin:0 0 8px 0">نهاية الشهر</h3>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <button class="btn" onclick="exportExcel()">📊 تحميل Excel احترافي</button>
-      <button class="btn danger small" onclick="resetMonthData()">❌ حذف جميع بيانات الشهر</button>
+      <button class="btn danger small" onclick="resetMonthData()">📦 أرشفة الشهر</button>
       <button class="btn secondary small" onclick="exportBackup()">📤 تصدير نسخة (Backup)</button>
       <input type="file" id="importFile" onchange="importBackup(event)" />
     </div>
@@ -284,7 +284,8 @@ const KEY_EMPLOYEES = "qa_employees_v2";
 const KEY_CRITERIA = "qa_criteria_v2";
 const KEY_EVALS = "qa_evals_v2";
 const KEY_LAST = "qa_last_v2";
-
+const KEY_ARCHIVES = "qa_archives_v1";
+  
 /* Default criteria (as you required) */
 const DEFAULT_CRITERIA = [
   "ترحيب بداية المكالمة وذكر الاسم",
@@ -306,7 +307,11 @@ let employees = JSON.parse(localStorage.getItem(KEY_EMPLOYEES)) || [];
 let criteriaList = JSON.parse(localStorage.getItem(KEY_CRITERIA)) || DEFAULT_CRITERIA.slice();
 let evaluations = JSON.parse(localStorage.getItem(KEY_EVALS)) || [];
 let lastEvaluated = localStorage.getItem(KEY_LAST) || "";
-
+let archives =
+JSON.parse(
+  localStorage.getItem(KEY_ARCHIVES)
+) || {};
+  
 /* ===== File System Access API ===== */
 let fileHandle = null;
 let warnedBefore = false;
@@ -353,11 +358,12 @@ async function autoSaveToFile(){
   try{
     const writable = await fileHandle.createWritable();
     const data = {
-      employees,
-      criteriaList,
-      evaluations,
-      lastEvaluated
-    };
+  employees,
+  criteriaList,
+  evaluations,
+  lastEvaluated,
+  archives
+};
     await writable.write(JSON.stringify(data, null, 2));
     await writable.close();
     updateFileStatus(true);
@@ -507,15 +513,78 @@ updateDashboard();
 
 /* reset month data */
 async function resetMonthData(){
-  if(!confirm("هل أنت متأكد أنك تريد حذف جميع تقييمات هذا الشهر والبدء من جديد؟")) return;
+
+  if(evaluations.length === 0){
+    alert("لا توجد بيانات لأرشفتها");
+    return;
+  }
+
+  const suggestedMonth =
+  new Date().toLocaleDateString(
+    "ar-SA",
+    {
+      month:"long",
+      year:"numeric"
+    }
+  );
+
+  const archiveName =
+  prompt(
+    "اسم الشهر المراد أرشفته",
+    suggestedMonth
+  );
+
+  if(
+    archiveName === null ||
+    archiveName.trim() === ""
+  ){
+    return;
+  }
+
+  if(
+    archives[archiveName]
+  ){
+    if(
+      !confirm(
+        "يوجد أرشيف بنفس الاسم، هل تريد استبداله؟"
+      )
+    ){
+      return;
+    }
+  }
+
+  archives[archiveName] =
+  JSON.parse(
+    JSON.stringify(evaluations)
+  );
+
+  localStorage.setItem(
+    KEY_ARCHIVES,
+    JSON.stringify(archives)
+  );
+
   evaluations = [];
-  localStorage.removeItem(KEY_EVALS);
-  localStorage.removeItem(KEY_LAST);
   lastEvaluated = "";
+
+  localStorage.setItem(
+    KEY_EVALS,
+    JSON.stringify(evaluations)
+  );
+
+  localStorage.setItem(
+    KEY_LAST,
+    ""
+  );
+
   loadEmployeeNames();
-  await autoSaveToFile();
+
   updateDashboard();
-  alert("تم حذف بيانات الشهر ✔️");
+
+  await autoSaveToFile();
+
+  alert(
+    "تمت أرشفة الشهر بنجاح 📦"
+  );
 }
 
 /* ===== Popups: add employees & manage criteria ===== */
@@ -595,10 +664,15 @@ async function importBackup(e){
       criteriaList = data.criteriaList || DEFAULT_CRITERIA.slice();
       evaluations = data.evaluations || [];
       lastEvaluated = data.lastEvaluated || "";
+      archives = data.archives || {};
       localStorage.setItem(KEY_EMPLOYEES, JSON.stringify(employees));
       localStorage.setItem(KEY_CRITERIA, JSON.stringify(criteriaList));
       localStorage.setItem(KEY_EVALS, JSON.stringify(evaluations));
       localStorage.setItem(KEY_LAST, lastEvaluated);
+      localStorage.setItem(
+  KEY_ARCHIVES,
+  JSON.stringify(archives)
+);
       loadEmployeeNames();
       renderCriteria();
       updateMistakeButtonState();
@@ -1222,6 +1296,10 @@ function init(){
     if(localStorage.getItem(KEY_EVALS))
       evaluations = JSON.parse(localStorage.getItem(KEY_EVALS));
     lastEvaluated = localStorage.getItem(KEY_LAST) || "";
+    archives =
+JSON.parse(
+  localStorage.getItem(KEY_ARCHIVES)
+) || {};
   }catch(e){
     // if parsing failed, reset to defaults to avoid crash
     employees = employees || [];
