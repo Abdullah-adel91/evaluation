@@ -214,6 +214,9 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
       <button class="btn" onclick="exportExcel()">📊 تحميل Excel احترافي</button>
       <button class="btn danger small" onclick="resetMonthData()">📦 أرشفة الشهر</button>
       <button class="btn secondary small" onclick="exportBackup()">📤 تصدير نسخة (Backup)</button>
+      <button class="btn secondary small" onclick="showArchives()">
+🗂️ إدارة الأرشيف
+</button>
       <input type="file" id="importFile" onchange="importBackup(event)" />
     </div>
     <div style="margin-top:8px;color:#475569;font-size:13px"></div>
@@ -277,7 +280,24 @@ textarea{width:100%;min-height:120px;padding:8px;font-size:14px;border-radius:6p
   </div>
 
 </div>
-  
+  <div id="archivesPopup" class="popup">
+
+  <h3>الأشهر المؤرشفة</h3>
+
+  <div id="archivesContent"
+       style="max-height:400px;overflow:auto">
+  </div>
+
+  <div style="text-align:left;margin-top:10px">
+
+    <button class="btn secondary"
+            onclick="closeArchivesPopup()">
+      إغلاق
+    </button>
+
+  </div>
+
+</div>
 <script>
 /* ===== Storage keys ===== */
 const KEY_EMPLOYEES = "qa_employees_v2";
@@ -1284,7 +1304,89 @@ async function deleteEvaluation(index){
 
   showEvaluationHistory();
 }
-  
+  function closeArchivesPopup(){
+
+  document.getElementById(
+    "archivesPopup"
+  ).style.display = "none";
+
+}
+
+function showArchives(){
+
+  const div =
+  document.getElementById(
+    "archivesContent"
+  );
+
+  const months =
+  Object.keys(archives);
+
+  if(months.length === 0){
+
+    div.innerHTML =
+    "<p>لا يوجد أرشيف محفوظ</p>";
+
+  }else{
+
+    div.innerHTML =
+    months.map(month=>`
+
+      <div style="
+      border:1px solid #ddd;
+      padding:10px;
+      margin:8px 0;
+      border-radius:8px">
+
+        <b>${month}</b>
+
+        <br>
+
+        عدد التقييمات:
+        ${archives[month].length}
+
+        <br><br>
+
+        <button
+        class="btn danger small"
+        onclick="deleteArchive('${month}')">
+
+        🗑️ حذف الأرشيف
+
+        </button>
+
+      </div>
+
+    `).join("");
+
+  }
+
+  document.getElementById(
+    "archivesPopup"
+  ).style.display = "block";
+}
+
+async function deleteArchive(month){
+
+  if(
+    !confirm(
+      "هل تريد حذف هذا الأرشيف؟"
+    )
+  ){
+    return;
+  }
+
+  delete archives[month];
+
+  localStorage.setItem(
+    KEY_ARCHIVES,
+    JSON.stringify(archives)
+  );
+
+  await autoSaveToFile();
+
+  showArchives();
+}
 /* ===== INIT ===== */
 function init(){
   // load saved data
